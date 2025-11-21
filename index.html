@@ -926,7 +926,7 @@
                             const hasCourseTitle = 'Course Title' in firstRow || 'CourseName' in firstRow || 'CourseTitle' in firstRow;
 
                             if (!hasCourseNumber || !hasCourseTitle) {
-                                setErrors(prev => [...prev, 'Master Course List is missing required columns. Expected "Course Number" and "Course Title".']);
+                                setErrors(prev => [...prev, 'Master Course List is missing required columns. Expected "Course Number" and "Course Title". Please check that you selected the correct files for each.']);
                                 setIsProcessing(false);
                                 return;
                             }
@@ -969,7 +969,7 @@
                             const hasCategory = 'Category' in firstRow;
 
                             if (!hasTranscriptDescrip || !hasRequirement) {
-                                setErrors(prev => [...prev, 'Degree Plans is missing required columns. Expected "TranscriptDescrip" and "Requirement".']);
+                                setErrors(prev => [...prev, 'Degree Plans is missing required columns. Expected "TranscriptDescrip" and "Requirement". Please check that you selected the correct files for each.']);
                                 setIsProcessing(false);
                                 return;
                             }
