@@ -1,0 +1,25 @@
+# Private data files - do not upload to GitHub
+*.txt
+
+# Exclude specific data files
+Degree Plans*.txt
+Master Course*.txt
+Business Course Enrollments*.txt
+enrollments*.txt
+
+# Node modules (if using npm in the future)
+node_modules/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

@@ -1,4 +1,11 @@
 <!DOCTYPE html>
+<!--
+Version 1.6.0 - Made Enrollment Figures file required, added sticky table headers that remain visible while scrolling.
+Version 1.5.0 - Fixed error banner persistence when replacing files, changed labels to "Average Enrollment" and "Degree Plans Using This".
+Version 1.4.0 - Added optional Enrollment Figures upload with Average Enrollment and Times Offered columns.
+Version 1.3.0 - Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification.
+Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, Concentration, Elective, Micro-credential.
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -142,7 +149,7 @@
 
         .upload-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
             margin-top: 20px;
         }
@@ -271,7 +278,9 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
+            overflow-x: auto;
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
         }
 
         table {
@@ -282,6 +291,9 @@
         thead {
             background: #000000;
             color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         th {
@@ -292,6 +304,7 @@
             cursor: pointer;
             user-select: none;
             position: relative;
+            background: #000000;
         }
 
         th:hover {
@@ -890,8 +903,10 @@
         function CourseInventoryApp() {
             const [coursesFile, setCoursesFile] = useState(null);
             const [degreePlansFile, setDegreePlansFile] = useState(null);
+            const [enrollmentsFile, setEnrollmentsFile] = useState(null);
             const [coursesData, setCoursesData] = useState([]);
             const [degreePlansData, setDegreePlansData] = useState([]);
+            const [enrollmentsData, setEnrollmentsData] = useState([]);
             const [processedCourses, setProcessedCourses] = useState([]);
             const [selectedSubject, setSelectedSubject] = useState('All Subjects');
             const [searchTerm, setSearchTerm] = useState('');
@@ -906,6 +921,9 @@
             // Parse uploaded CSV files
             useEffect(() => {
                 if (coursesFile) {
+                    // Clear previous errors for this file type
+                    setErrors(prev => prev.filter(e => !e.includes('Master Course List')));
+
                     // Check file size (warn if > 10MB)
                     if (coursesFile.size > 10 * 1024 * 1024) {
                         setErrors(prev => [...prev, 'Warning: Master Course List file is large (' + (coursesFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
@@ -948,6 +966,9 @@
 
             useEffect(() => {
                 if (degreePlansFile) {
+                    // Clear previous errors for this file type
+                    setErrors(prev => prev.filter(e => !e.includes('Degree Plans')));
+
                     // Check file size (warn if > 10MB)
                     if (degreePlansFile.size > 10 * 1024 * 1024) {
                         setErrors(prev => [...prev, 'Warning: Degree Plans file is large (' + (degreePlansFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
@@ -988,9 +1009,54 @@
                 }
             }, [degreePlansFile]);
 
+            useEffect(() => {
+                if (enrollmentsFile) {
+                    // Clear previous errors for this file type
+                    setErrors(prev => prev.filter(e => !e.includes('Enrollment Figures')));
+
+                    // Check file size (warn if > 10MB)
+                    if (enrollmentsFile.size > 10 * 1024 * 1024) {
+                        setErrors(prev => [...prev, 'Warning: Enrollment Figures file is large (' + (enrollmentsFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
+                    }
+
+                    setIsProcessing(true);
+                    Papa.parse(enrollmentsFile, {
+                        header: true,
+                        complete: (results) => {
+                            if (results.errors.length > 0) {
+                                console.error('CSV parsing errors:', results.errors);
+                                setErrors(prev => [...prev, 'Some rows in Enrollment Figures had parsing errors. Check console for details.']);
+                            }
+
+                            // Validate required columns
+                            const firstRow = results.data[0] || {};
+                            const hasCourseNumber = 'Course Number' in firstRow;
+                            const hasEnrollment = 'Course Enrollment' in firstRow;
+
+                            if (!hasCourseNumber || !hasEnrollment) {
+                                setErrors(prev => [...prev, 'Enrollment Figures is missing required columns. Expected "Course Number" and "Course Enrollment". Please check that you selected the correct files for each.']);
+                                setIsProcessing(false);
+                                return;
+                            }
+
+                            const filtered = results.data.filter(row =>
+                                row['Course Number'] && row['Course Number'].trim() &&
+                                row['Course Enrollment']
+                            );
+                            setEnrollmentsData(filtered);
+                            setIsProcessing(false);
+                        },
+                        error: (error) => {
+                            setErrors(prev => [...prev, 'Failed to parse Enrollment Figures: ' + error.message]);
+                            setIsProcessing(false);
+                        }
+                    });
+                }
+            }, [enrollmentsFile]);
+
             // Process courses with degree plan counts
             useEffect(() => {
-                if (coursesData.length > 0 && degreePlansData.length > 0) {
+                if (coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0) {
                     // Auto-hide upload section once data is loaded
                     setUploadSectionExpanded(false);
                     setIsProcessing(true);
@@ -1081,12 +1147,35 @@
                         });
                     });
 
+                    // Calculate enrollment statistics
+                    const enrollmentMap = new Map();
+                    if (enrollmentsData.length > 0) {
+                        enrollmentsData.forEach(enrollment => {
+                            const courseCode = (enrollment['Course Number'] || '').trim();
+                            const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
+
+                            if (!courseCode) return;
+
+                            if (!enrollmentMap.has(courseCode)) {
+                                enrollmentMap.set(courseCode, {
+                                    totalEnrollment: 0,
+                                    timesOffered: 0
+                                });
+                            }
+
+                            const stats = enrollmentMap.get(courseCode);
+                            stats.totalEnrollment += enrollmentCount;
+                            stats.timesOffered += 1;
+                        });
+                    }
+
                     // Merge with course master list
                     const processed = coursesData.map(course => {
                         const courseCode = (course['Course Number'] || course['CourseCode'] || '').trim();
                         const courseTitle = course['Course Title'] || course['CourseName'] || course['CourseTitle'] || '';
                         const deptChair = course['Department Chair'] || '';
                         const usage = courseUsageMap.get(courseCode) || { count: 0, programs: new Map() };
+                        const enrollmentStats = enrollmentMap.get(courseCode) || { totalEnrollment: 0, timesOffered: 0 };
                         
                         const programsArray = Array.from(usage.programs.entries()).map(([name, info]) => ({
                             name: name,
@@ -1138,6 +1227,10 @@
                             return aOrder - bOrder;
                         });
 
+                        const avgEnrollment = enrollmentStats.timesOffered > 0
+                            ? Math.round(enrollmentStats.totalEnrollment / enrollmentStats.timesOffered)
+                            : 0;
+
                         return {
                             code: courseCode,
                             title: courseTitle,
@@ -1145,14 +1238,16 @@
                             subject: courseCode.match(/^[A-Z]+/)?.[0] || '',
                             usageCount: usage.count,
                             programs: programsArray,
-                            types: sortedTypes
+                            types: sortedTypes,
+                            avgEnrollment: avgEnrollment,
+                            timesOffered: enrollmentStats.timesOffered
                         };
                     });
 
                     setProcessedCourses(processed);
                     setIsProcessing(false);
                 }
-            }, [coursesData, degreePlansData]);
+            }, [coursesData, degreePlansData, enrollmentsData]);
 
             // Get unique subjects
             const subjects = useMemo(() => {
@@ -1191,6 +1286,14 @@
                         case 'usage':
                             aVal = a.usageCount;
                             bVal = b.usageCount;
+                            break;
+                        case 'avgEnrollment':
+                            aVal = a.avgEnrollment;
+                            bVal = b.avgEnrollment;
+                            break;
+                        case 'timesOffered':
+                            aVal = a.timesOffered;
+                            bVal = b.timesOffered;
                             break;
                         default:
                             aVal = a.code;
@@ -1281,7 +1384,7 @@
                 setSelectedTypes([]);
             };
 
-            const dataLoaded = coursesData.length > 0 && degreePlansData.length > 0;
+            const dataLoaded = coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0;
             const hasErrors = errors.length > 0;
             const isError = hasErrors && errors.some(e => e.toLowerCase().includes('failed') || e.toLowerCase().includes('missing'));
 
@@ -1335,7 +1438,7 @@
                 },
                     h('h2', { style: { marginBottom: '10px', color: '#000000' } }, 'Upload Data Files'),
                     h('p', { style: { color: '#9D968D', marginBottom: '20px', fontSize: '14px' } },
-                        dataLoaded ? 'Upload new files to replace the current data.' : 'Upload both required files to begin analysis'
+                        dataLoaded ? 'Upload new files to replace the current data.' : 'All three files are required to begin analysis.'
                     ),
                     h('div', { className: 'upload-grid' },
                         h('div', { className: 'upload-box' + (coursesFile ? ' uploaded' : '') },
@@ -1365,6 +1468,22 @@
                                 h('div', { className: 'upload-text' }, 'Degree Plans'),
                                 degreePlansFile && h('div', { className: 'upload-status' }, '✓ ' + degreePlansFile.name),
                                 !degreePlansFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
+                                    'Click to upload CSV/TXT'
+                                )
+                            )
+                        ),
+
+                        h('div', { className: 'upload-box' + (enrollmentsFile ? ' uploaded' : '') },
+                            h('label', null,
+                                h('input', {
+                                    type: 'file',
+                                    accept: '.csv,.txt',
+                                    onChange: (e) => setEnrollmentsFile(e.target.files[0])
+                                }),
+                                h('div', { className: 'upload-icon' }, '📊'),
+                                h('div', { className: 'upload-text' }, 'Enrollment Figures'),
+                                enrollmentsFile && h('div', { className: 'upload-status' }, '✓ ' + enrollmentsFile.name),
+                                !enrollmentsFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
                                     'Click to upload CSV/TXT'
                                 )
                             )
@@ -1445,21 +1564,29 @@
                                         className: getSortClass('code'),
                                         onClick: () => handleSort('code')
                                     }, 'CODE'),
-                                    h('th', { 
+                                    h('th', {
                                         className: getSortClass('title'),
                                         onClick: () => handleSort('title')
                                     }, 'TITLE'),
                                     h('th', null, 'TYPES'),
-                                    h('th', { 
+                                    h('th', {
                                         className: 'center ' + getSortClass('usage'),
                                         onClick: () => handleSort('usage')
-                                    }, 'USAGE COUNT'),
+                                    }, 'DEGREE PLANS USING THIS'),
+                                    enrollmentsData.length > 0 && h('th', {
+                                        className: 'center ' + getSortClass('avgEnrollment'),
+                                        onClick: () => handleSort('avgEnrollment')
+                                    }, 'AVG ENROLLMENT'),
+                                    enrollmentsData.length > 0 && h('th', {
+                                        className: 'center ' + getSortClass('timesOffered'),
+                                        onClick: () => handleSort('timesOffered')
+                                    }, 'TIMES OFFERED'),
                                     h('th', { className: 'center' }, 'PROGRAMS')
                                 )
                             ),
                             h('tbody', null,
                                 sortedCourses.length === 0 && h('tr', null,
-                                    h('td', { colSpan: 5, className: 'no-results' },
+                                    h('td', { colSpan: enrollmentsData.length > 0 ? 7 : 5, className: 'no-results' },
                                         'No courses found matching your criteria'
                                     )
                                 ),
@@ -1479,6 +1606,16 @@
                                         ),
                                         h('td', { className: 'center' },
                                             h('span', { className: 'usage-count' }, course.usageCount)
+                                        ),
+                                        enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                            course.avgEnrollment > 0
+                                                ? h('span', { className: 'usage-count' }, course.avgEnrollment)
+                                                : h('span', { style: { color: '#9D968D' } }, '—')
+                                        ),
+                                        enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                            course.timesOffered > 0
+                                                ? h('span', { className: 'usage-count' }, course.timesOffered)
+                                                : h('span', { style: { color: '#9D968D' } }, '—')
                                         ),
                                         h('td', { className: 'center' },
                                             course.usageCount > 0
@@ -1501,8 +1638,8 @@
                 }),
 
                 h('div', { className: 'version-footer' },
-                    h('span', { className: 'version-number' }, 'Version 1.3.0'),
-                    ' — Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification'
+                    h('span', { className: 'version-number' }, 'Version 1.6.0'),
+                    ' — Made all three files required, added sticky table headers'
                 )
             );
         }
@@ -1519,9 +1656,9 @@
                     ),
 
                     h('div', { className: 'modal-body' },
-                        h('div', { className: 'info-grid' },
+                        h('div', { className: 'info-grid', style: { gridTemplateColumns: course.avgEnrollment > 0 ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)' } },
                             h('div', { className: 'info-item' },
-                                h('div', { className: 'info-label' }, 'Usage'),
+                                h('div', { className: 'info-label' }, 'Degree Plans Using This'),
                                 h('div', { className: 'info-value' }, course.usageCount)
                             ),
                             h('div', { className: 'info-item' },
@@ -1531,6 +1668,14 @@
                             h('div', { className: 'info-item' },
                                 h('div', { className: 'info-label' }, 'Programs'),
                                 h('div', { className: 'info-value' }, course.programs.length)
+                            ),
+                            course.avgEnrollment > 0 && h('div', { className: 'info-item' },
+                                h('div', { className: 'info-label' }, 'Avg Enrollment'),
+                                h('div', { className: 'info-value' }, course.avgEnrollment)
+                            ),
+                            course.timesOffered > 0 && h('div', { className: 'info-item' },
+                                h('div', { className: 'info-label' }, 'Times Offered'),
+                                h('div', { className: 'info-value' }, course.timesOffered)
                             )
                         ),
 
