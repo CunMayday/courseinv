@@ -1,5 +1,44 @@
 # Project Task History
 
+## 10. Fix critical data integrity and documentation bugs
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"all three files with proper data are indeed required. I don't know if there are courses with zero enrollments, so I don't know if that's a significant issue. Implement only the changed in first group, ignore 2 and 3."
+
+**Summary:**
+Fixed critical bugs and updated documentation (Version 1.7.0):
+
+1. **Stale data bug fix** - Clear data state arrays on validation failure to prevent stale data:
+   - Added `setCoursesData([])` when Master Course List validation fails (line 948)
+   - Added `setDegreePlansData([])` when Degree Plans validation fails (line 995)
+   - Added `setEnrollmentsData([])` when Enrollment Figures validation fails (line 1040)
+   - Prevents analysis from continuing with old/incorrect data after bad file uploads
+2. **Elective labeling fix** - Prevent duplicate "Elective" suffixes:
+   - Check if category already contains "elective" before appending " Elective" (lines 1094-1098)
+   - Fixes "Concentration Elective Elective" becoming just "Concentration Elective"
+3. **README.md updates** - Synced documentation with v1.6.0 code:
+   - Changed File 3 from "Optional" to "Required" (line 70)
+   - Updated "Average Attendance" to "Average Enrollment" (line 97)
+   - Added version history entries for v1.5.0, v1.6.0, and v1.7.0 (lines 237-242)
+   - Updated usage instructions to clarify all three files are required (line 197)
+   - Updated feature list to show enrollment tracking as required (line 20)
+
+Critical data integrity issue resolved - bad file uploads now properly clear stale data instead of allowing analysis with mixed old/new datasets.
+
+---
+
+## 9. Repository review
+**Agent:** Codex
+
+**User Prompt:**
+"review all the .md files and the code, then give me feedback on anything that's not working right. then give me some improvement suggestions"
+
+**Summary:**
+Reviewed repository documentation and HTML code, noted doc/code drift on enrollment file requirements and version history, spotted validation gaps that leave stale data active after bad uploads, and prepared feedback plus improvement suggestions (no code changes made).
+
+---
+
 ## 8. Make enrollment file required and add sticky table headers
 **Agent:** Claude (Sonnet 4.5)
 

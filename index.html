@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!--
+Version 1.7.0 - Fixed stale data bug on validation failure, fixed duplicate elective labels, updated documentation.
 Version 1.6.0 - Made Enrollment Figures file required, added sticky table headers that remain visible while scrolling.
 Version 1.5.0 - Fixed error banner persistence when replacing files, changed labels to "Average Enrollment" and "Degree Plans Using This".
 Version 1.4.0 - Added optional Enrollment Figures upload with Average Enrollment and Times Offered columns.
@@ -945,6 +946,7 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
 
                             if (!hasCourseNumber || !hasCourseTitle) {
                                 setErrors(prev => [...prev, 'Master Course List is missing required columns. Expected "Course Number" and "Course Title". Please check that you selected the correct files for each.']);
+                                setCoursesData([]);
                                 setIsProcessing(false);
                                 return;
                             }
@@ -991,6 +993,7 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
 
                             if (!hasTranscriptDescrip || !hasRequirement) {
                                 setErrors(prev => [...prev, 'Degree Plans is missing required columns. Expected "TranscriptDescrip" and "Requirement". Please check that you selected the correct files for each.']);
+                                setDegreePlansData([]);
                                 setIsProcessing(false);
                                 return;
                             }
@@ -1035,6 +1038,7 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
 
                             if (!hasCourseNumber || !hasEnrollment) {
                                 setErrors(prev => [...prev, 'Enrollment Figures is missing required columns. Expected "Course Number" and "Course Enrollment". Please check that you selected the correct files for each.']);
+                                setEnrollmentsData([]);
                                 setIsProcessing(false);
                                 return;
                             }
@@ -1087,7 +1091,12 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
                             } else if (category.toLowerCase() === 'concentration') {
                                 categoryLabel = 'Concentration Elective';
                             } else if (category) {
-                                categoryLabel = category + ' Elective';
+                                // Check if category already contains "elective" to avoid duplication
+                                if (category.toLowerCase().includes('elective')) {
+                                    categoryLabel = category;
+                                } else {
+                                    categoryLabel = category + ' Elective';
+                                }
                             } else {
                                 categoryLabel = 'Elective';
                             }
@@ -1638,8 +1647,8 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
                 }),
 
                 h('div', { className: 'version-footer' },
-                    h('span', { className: 'version-number' }, 'Version 1.6.0'),
-                    ' — Made all three files required, added sticky table headers'
+                    h('span', { className: 'version-number' }, 'Version 1.7.0'),
+                    ' — Fixed critical data validation bugs, updated documentation'
                 )
             );
         }

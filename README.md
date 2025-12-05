@@ -17,7 +17,7 @@ This is a standalone HTML application that performs complex data analysis entire
 - **Type Classification** - Categorizes courses as Core, Major, Requirements, Concentration, Elective, Open Elective, or Micro-credential
 - **Filtering & Search** - Filter by subject area, search by code/title, filter by type
 - **Detailed Course View** - Modal showing all programs using a course with category information
-- **Enrollment Tracking** (Optional) - Upload enrollment data to see average attendance and times offered
+- **Enrollment Tracking** (Required) - Upload enrollment data to see average enrollment and times offered
 - **Error Handling** - Comprehensive validation with user-friendly error messages
 - **Loading Indicators** - Visual feedback during file processing
 
@@ -67,8 +67,8 @@ Business,3,Open,Open Electives,Open Electives,MT106,,Associate of Applied Scienc
 Business,4,Concentration,MT209 Small Business Management or MT220 Global Business,Business Elective,MT220,,Associate of Applied Science in Business
 ```
 
-### File 3: Enrollment Figures (Optional)
-**Purpose:** Historical enrollment data for calculating average attendance and offering frequency
+### File 3: Enrollment Figures (Required)
+**Purpose:** Historical enrollment data for calculating average enrollment and offering frequency
 
 **Required Columns:**
 - `Course Number` - Course code matching the Master Course List
@@ -93,8 +93,8 @@ Course Year,Term Name,Course Name,Course Number,Course Section,Course UniqueID,C
 2024/2025,2502A,Accounting I,AC114,1,2606762,28,04/16/2025,06/24/2025,Business
 ```
 
-**Note:** This file is completely optional. If provided, the application will display two additional columns:
-- **Average Attendance** - Average enrollment across all sections of this course
+**Note:** This file is required for analysis. The application will display:
+- **Average Enrollment** - Average enrollment across all sections of this course
 - **Times Offered** - Total number of times this course was offered (number of sections)
 
 ## Data Processing Logic
@@ -194,7 +194,8 @@ courseinv/
    - Click "Upload Data Files" section
    - Upload **Master Course List** (first box)
    - Upload **Degree Plans** (second box)
-   - Files must be CSV or TXT format with tab/comma delimiters
+   - Upload **Enrollment Figures** (third box) - Required
+   - All three files must be CSV or TXT format with tab/comma delimiters
 
 3. **View Results**
    - Once both files are uploaded, analysis begins automatically
@@ -233,7 +234,10 @@ The application includes comprehensive error handling:
 
 ### Version History
 
-- **v1.4.0** - Added optional Enrollment Figures upload with Average Attendance and Times Offered columns
+- **v1.7.0** - Fixed critical data validation bugs (stale data on failed uploads), fixed duplicate elective labels, updated documentation
+- **v1.6.0** - Made Enrollment Figures file required, added sticky table headers
+- **v1.5.0** - Fixed error banner persistence, improved label clarity ("Average Enrollment", "Degree Plans Using This")
+- **v1.4.0** - Added Enrollment Figures upload with Average Enrollment and Times Offered columns
 - **v1.3.0** - Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification
 - **v1.2.0** - Added type filter and ordered tags: Core, Major, Requirements, Concentration, Elective, Micro-credential
 
