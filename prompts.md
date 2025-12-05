@@ -1,5 +1,55 @@
 # Project Task History
 
+## 13. Review refactor split correctness
+**Agent:** Codex
+
+**User Prompt:**
+"we just refactored the single html index file to three separate components.  check ifthis was done properly"
+
+**Summary:**
+Reviewed split into `index.html`, `styles.css`, and `script.js`; noted missing version headers in new code files, mojibake icons/checkbox ticks from encoding loss, and existing validation gaps (degree plan category not enforced; `dataLoaded` blocks when enrollments file has only headers/zeros). No code changes made.
+
+---
+
+## 12. Refactor into separate files to reduce context usage
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"yes, let's try that, then test locally before committing"
+
+**Summary:**
+Refactored single-file HTML application into separate CSS and JS files (Version 1.9.0):
+
+1. **Created styles.css** - Extracted all CSS (~600 lines) from index.html into separate stylesheet
+   - Contains all Purdue branding colors and styling
+   - Includes responsive design and media queries
+   - Maintains all existing visual design and animations
+
+2. **Created script.js** - Extracted all JavaScript (~900 lines) from index.html
+   - Contains CDN fallback system for React, React-DOM, and PapaParse
+   - Contains complete React application code
+   - Maintains all existing functionality
+
+3. **Updated index.html** - Reduced to minimal HTML structure (~20 lines)
+   - Added version 1.9.0 comment
+   - Links to external styles.css
+   - Links to external script.js
+   - Maintains all version history in comments
+
+4. **Updated README.md** - Documented new file structure
+   - Updated "File Structure" section to show three files
+   - Added v1.9.0 to version history
+
+5. **Tested locally** - Opened index.html in browser to verify functionality
+
+**Benefits:**
+- Significantly reduces context usage in future AI sessions (each file edit now triggers smaller system reminders)
+- Improves code organization and maintainability
+- Easier to navigate and edit specific sections (CSS vs JS)
+- Preserves all existing functionality and CDN fallback system
+
+---
+
 ## 11. Add checkbox filter to hide courses never offered
 **Agent:** Claude (Sonnet 4.5)
 

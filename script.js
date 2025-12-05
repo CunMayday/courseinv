@@ -1,0 +1,881 @@
+/*
+Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
+Version 1.8.0 - Added checkbox filter to hide courses that have never been offered.
+Version 1.7.0 - Fixed stale data bug on validation failure, fixed duplicate elective labels, updated documentation.
+Version 1.6.0 - Made Enrollment Figures file required, added sticky table headers that remain visible while scrolling.
+Version 1.5.0 - Fixed error banner persistence when replacing files, changed labels to "Average Enrollment" and "Degree Plans Using This".
+Version 1.4.0 - Added optional Enrollment Figures upload with Average Enrollment and Times Offered columns.
+Version 1.3.0 - Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification.
+Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, Concentration, Elective, Micro-credential.
+*/
+
+// CDN fallback system
+function loadScript(urls, callback) {
+    var index = 0;
+    function tryNext() {
+        if (index >= urls.length) {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;"><h2 style="color:#C28E0E;">Failed to Load Required Libraries</h2><p style="color:#373A36;">Please check your internet connection and refresh the page.</p><button onclick="location.reload()" style="background:#C28E0E;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;margin-top:20px;">Refresh Page</button></div>';
+            return;
+        }
+        var script = document.createElement('script');
+        script.src = urls[index];
+        script.onload = callback;
+        script.onerror = function() {
+            index++;
+            tryNext();
+        };
+        document.head.appendChild(script);
+    }
+    tryNext();
+}
+
+var reactUrls = [
+    'https://unpkg.com/react@18/umd/react.production.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
+    'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js'
+];
+var reactDomUrls = [
+    'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
+    'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js'
+];
+var papaparseUrls = [
+    'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js',
+    'https://unpkg.com/papaparse@5.4.1/papaparse.min.js',
+    'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js'
+];
+
+// Load libraries in sequence with fallbacks, then start app
+loadScript(reactUrls, function() {
+    loadScript(reactDomUrls, function() {
+        loadScript(papaparseUrls, function() {
+            startApp();
+        });
+    });
+});
+
+function startApp() {
+const { useState, useEffect, useMemo } = React;
+const { createElement: h } = React;
+
+function CourseInventoryApp() {
+    const [coursesFile, setCoursesFile] = useState(null);
+    const [degreePlansFile, setDegreePlansFile] = useState(null);
+    const [enrollmentsFile, setEnrollmentsFile] = useState(null);
+    const [coursesData, setCoursesData] = useState([]);
+    const [degreePlansData, setDegreePlansData] = useState([]);
+    const [enrollmentsData, setEnrollmentsData] = useState([]);
+    const [processedCourses, setProcessedCourses] = useState([]);
+    const [selectedSubject, setSelectedSubject] = useState('All Subjects');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [sortField, setSortField] = useState('code');
+    const [sortDirection, setSortDirection] = useState('asc');
+    const [uploadSectionExpanded, setUploadSectionExpanded] = useState(false);
+    const [selectedTypes, setSelectedTypes] = useState([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [errors, setErrors] = useState([]);
+    const [hideNeverOffered, setHideNeverOffered] = useState(false);
+
+    // Parse uploaded CSV files
+    useEffect(() => {
+        if (coursesFile) {
+            // Clear previous errors for this file type
+            setErrors(prev => prev.filter(e => !e.includes('Master Course List')));
+
+            // Check file size (warn if > 10MB)
+            if (coursesFile.size > 10 * 1024 * 1024) {
+                setErrors(prev => [...prev, 'Warning: Master Course List file is large (' + (coursesFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
+            }
+
+            setIsProcessing(true);
+            Papa.parse(coursesFile, {
+                header: true,
+                complete: (results) => {
+                    if (results.errors.length > 0) {
+                        console.error('CSV parsing errors:', results.errors);
+                        setErrors(prev => [...prev, 'Some rows in Master Course List had parsing errors. Check console for details.']);
+                    }
+
+                    // Validate required columns
+                    const firstRow = results.data[0] || {};
+                    const hasCourseNumber = 'Course Number' in firstRow || 'CourseCode' in firstRow;
+                    const hasCourseTitle = 'Course Title' in firstRow || 'CourseName' in firstRow || 'CourseTitle' in firstRow;
+
+                    if (!hasCourseNumber || !hasCourseTitle) {
+                        setErrors(prev => [...prev, 'Master Course List is missing required columns. Expected "Course Number" and "Course Title". Please check that you selected the correct files for each.']);
+                        setCoursesData([]);
+                        setIsProcessing(false);
+                        return;
+                    }
+
+                    const filtered = results.data.filter(row => {
+                        const courseCode = row['Course Number'] || row['CourseCode'];
+                        return courseCode && courseCode.trim();
+                    });
+                    setCoursesData(filtered);
+                    setIsProcessing(false);
+                },
+                error: (error) => {
+                    setErrors(prev => [...prev, 'Failed to parse Master Course List: ' + error.message]);
+                    setIsProcessing(false);
+                }
+            });
+        }
+    }, [coursesFile]);
+
+    useEffect(() => {
+        if (degreePlansFile) {
+            // Clear previous errors for this file type
+            setErrors(prev => prev.filter(e => !e.includes('Degree Plans')));
+
+            // Check file size (warn if > 10MB)
+            if (degreePlansFile.size > 10 * 1024 * 1024) {
+                setErrors(prev => [...prev, 'Warning: Degree Plans file is large (' + (degreePlansFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
+            }
+
+            setIsProcessing(true);
+            Papa.parse(degreePlansFile, {
+                header: true,
+                complete: (results) => {
+                    if (results.errors.length > 0) {
+                        console.error('CSV parsing errors:', results.errors);
+                        setErrors(prev => [...prev, 'Some rows in Degree Plans had parsing errors. Check console for details.']);
+                    }
+
+                    // Validate required columns
+                    const firstRow = results.data[0] || {};
+                    const hasTranscriptDescrip = 'TranscriptDescrip' in firstRow;
+                    const hasRequirement = 'Requirement' in firstRow;
+                    const hasCategory = 'Category' in firstRow;
+
+                    if (!hasTranscriptDescrip || !hasRequirement) {
+                        setErrors(prev => [...prev, 'Degree Plans is missing required columns. Expected "TranscriptDescrip" and "Requirement". Please check that you selected the correct files for each.']);
+                        setDegreePlansData([]);
+                        setIsProcessing(false);
+                        return;
+                    }
+
+                    const filtered = results.data.filter(row =>
+                        row.TranscriptDescrip && row.TranscriptDescrip.trim()
+                    );
+                    setDegreePlansData(filtered);
+                    setIsProcessing(false);
+                },
+                error: (error) => {
+                    setErrors(prev => [...prev, 'Failed to parse Degree Plans: ' + error.message]);
+                    setIsProcessing(false);
+                }
+            });
+        }
+    }, [degreePlansFile]);
+
+    useEffect(() => {
+        if (enrollmentsFile) {
+            // Clear previous errors for this file type
+            setErrors(prev => prev.filter(e => !e.includes('Enrollment Figures')));
+
+            // Check file size (warn if > 10MB)
+            if (enrollmentsFile.size > 10 * 1024 * 1024) {
+                setErrors(prev => [...prev, 'Warning: Enrollment Figures file is large (' + (enrollmentsFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
+            }
+
+            setIsProcessing(true);
+            Papa.parse(enrollmentsFile, {
+                header: true,
+                complete: (results) => {
+                    if (results.errors.length > 0) {
+                        console.error('CSV parsing errors:', results.errors);
+                        setErrors(prev => [...prev, 'Some rows in Enrollment Figures had parsing errors. Check console for details.']);
+                    }
+
+                    // Validate required columns
+                    const firstRow = results.data[0] || {};
+                    const hasCourseNumber = 'Course Number' in firstRow;
+                    const hasEnrollment = 'Course Enrollment' in firstRow;
+
+                    if (!hasCourseNumber || !hasEnrollment) {
+                        setErrors(prev => [...prev, 'Enrollment Figures is missing required columns. Expected "Course Number" and "Course Enrollment". Please check that you selected the correct files for each.']);
+                        setEnrollmentsData([]);
+                        setIsProcessing(false);
+                        return;
+                    }
+
+                    const filtered = results.data.filter(row =>
+                        row['Course Number'] && row['Course Number'].trim() &&
+                        row['Course Enrollment']
+                    );
+                    setEnrollmentsData(filtered);
+                    setIsProcessing(false);
+                },
+                error: (error) => {
+                    setErrors(prev => [...prev, 'Failed to parse Enrollment Figures: ' + error.message]);
+                    setIsProcessing(false);
+                }
+            });
+        }
+    }, [enrollmentsFile]);
+
+    // Process courses with degree plan counts
+    useEffect(() => {
+        if (coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0) {
+            // Auto-hide upload section once data is loaded
+            setUploadSectionExpanded(false);
+            setIsProcessing(true);
+
+            // Clear previous errors related to processing
+            setErrors([]);
+
+            const courseUsageMap = new Map();
+
+            // Build usage map from degree plans
+            degreePlansData.forEach(plan => {
+                let courseCodes = [];
+                let categoryLabel = '';
+                const requirement = plan.Requirement || '';
+                const category = plan.Category || '';
+                const defaultCode = plan.DefaultCode || '';
+
+                // Check if requirement contains "elective" (any type of elective)
+                if (requirement.toLowerCase().includes('elective')) {
+                    // Use DefaultCode for electives
+                    if (defaultCode && defaultCode.trim()) {
+                        courseCodes.push(defaultCode.trim());
+                    }
+
+                    // Determine category label
+                    if (requirement.toLowerCase().includes('open elective')) {
+                        categoryLabel = 'Open Elective';
+                    } else if (category.toLowerCase() === 'concentration') {
+                        categoryLabel = 'Concentration Elective';
+                    } else if (category) {
+                        // Check if category already contains "elective" to avoid duplication
+                        if (category.toLowerCase().includes('elective')) {
+                            categoryLabel = category;
+                        } else {
+                            categoryLabel = category + ' Elective';
+                        }
+                    } else {
+                        categoryLabel = 'Elective';
+                    }
+                } else if (requirement.toLowerCase().includes(' or ')) {
+                    // Handle "OR" requirements - split and use all course codes
+                    const parts = requirement.split(/\s+or\s+/i);
+                    parts.forEach(part => {
+                        // Extract course code (e.g., "MT209 Small Business Management" -> "MT209")
+                        const match = part.trim().match(/^([A-Z]{2}\d{3})/);
+                        if (match) {
+                            courseCodes.push(match[1]);
+                        }
+                    });
+                    categoryLabel = category || 'N/A';
+                } else if (requirement.toLowerCase().includes('requirement')) {
+                    // For generic requirements like "Mathematics Requirement", use DefaultCode
+                    if (defaultCode && defaultCode.trim()) {
+                        courseCodes.push(defaultCode.trim());
+                    }
+                    categoryLabel = category || 'N/A';
+                } else {
+                    // Use requirement as-is (it should be a course code)
+                    if (requirement && requirement.trim()) {
+                        courseCodes.push(requirement.trim());
+                    }
+                    categoryLabel = category || 'N/A';
+                }
+
+                const programName = plan.TranscriptDescrip.trim();
+
+                // Process each course code
+                courseCodes.forEach(courseCode => {
+                    // Skip if no valid course code or if it's still a generic requirement
+                    if (!courseCode ||
+                        courseCode.toLowerCase().includes('requirement') ||
+                        courseCode.toLowerCase().includes('elective')) {
+                        return;
+                    }
+
+                    if (!courseUsageMap.has(courseCode)) {
+                        courseUsageMap.set(courseCode, {
+                            count: 0,
+                            programs: new Map()
+                        });
+                    }
+
+                    const usage = courseUsageMap.get(courseCode);
+
+                    // Store program with category
+                    if (!usage.programs.has(programName)) {
+                        usage.programs.set(programName, {
+                            category: categoryLabel
+                        });
+                    }
+
+                    usage.count = usage.programs.size;
+                });
+            });
+
+            // Calculate enrollment statistics
+            const enrollmentMap = new Map();
+            if (enrollmentsData.length > 0) {
+                enrollmentsData.forEach(enrollment => {
+                    const courseCode = (enrollment['Course Number'] || '').trim();
+                    const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
+
+                    if (!courseCode) return;
+
+                    if (!enrollmentMap.has(courseCode)) {
+                        enrollmentMap.set(courseCode, {
+                            totalEnrollment: 0,
+                            timesOffered: 0
+                        });
+                    }
+
+                    const stats = enrollmentMap.get(courseCode);
+                    stats.totalEnrollment += enrollmentCount;
+                    stats.timesOffered += 1;
+                });
+            }
+
+            // Merge with course master list
+            const processed = coursesData.map(course => {
+                const courseCode = (course['Course Number'] || course['CourseCode'] || '').trim();
+                const courseTitle = course['Course Title'] || course['CourseName'] || course['CourseTitle'] || '';
+                const deptChair = course['Department Chair'] || '';
+                const usage = courseUsageMap.get(courseCode) || { count: 0, programs: new Map() };
+                const enrollmentStats = enrollmentMap.get(courseCode) || { totalEnrollment: 0, timesOffered: 0 };
+
+                const programsArray = Array.from(usage.programs.entries()).map(([name, info]) => ({
+                    name: name,
+                    category: info.category
+                })).sort((a, b) => a.name.localeCompare(b.name));
+
+                // Extract unique category types for this course
+                const categoryTypes = new Set();
+                programsArray.forEach(p => {
+                    const cat = p.category.toLowerCase().trim();
+
+                    // Skip empty or N/A categories
+                    if (!cat || cat === 'n/a') {
+                        return;
+                    }
+
+                    // Check in order of specificity (most specific first)
+                    if (cat.includes('open') && cat.includes('elective')) {
+                        categoryTypes.add('Open Elective');
+                    } else if (cat.includes('concentration') && cat.includes('elective')) {
+                        categoryTypes.add('Concentration Elective');
+                    } else if (cat.includes('micro-credential') || cat.includes('micro credential')) {
+                        categoryTypes.add('Micro-credential');
+                    } else if (cat.includes('core')) {
+                        categoryTypes.add('Core');
+                    } else if (cat.includes('major')) {
+                        categoryTypes.add('Major');
+                    } else if (cat.includes('requirements')) {
+                        categoryTypes.add('Requirements');
+                    } else if (cat.includes('concentration')) {
+                        categoryTypes.add('Concentration');
+                    } else if (cat.includes('elective')) {
+                        categoryTypes.add('Elective');
+                    } else if (cat.includes('open')) {
+                        categoryTypes.add('Open');
+                    } else {
+                        // Capitalize first letter of unknown categories
+                        categoryTypes.add(p.category.charAt(0).toUpperCase() + p.category.slice(1));
+                    }
+                });
+
+                // Sort types according to defined order
+                const typeOrderLocal = ['Core', 'Major', 'Requirements', 'Concentration', 'Concentration Elective', 'Elective', 'Open Elective', 'Micro-credential'];
+                const sortedTypes = Array.from(categoryTypes).sort((a, b) => {
+                    const aIndex = typeOrderLocal.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
+                    const bIndex = typeOrderLocal.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
+                    const aOrder = aIndex === -1 ? 999 : aIndex;
+                    const bOrder = bIndex === -1 ? 999 : bIndex;
+                    return aOrder - bOrder;
+                });
+
+                const avgEnrollment = enrollmentStats.timesOffered > 0
+                    ? Math.round(enrollmentStats.totalEnrollment / enrollmentStats.timesOffered)
+                    : 0;
+
+                return {
+                    code: courseCode,
+                    title: courseTitle,
+                    deptChair: deptChair,
+                    subject: courseCode.match(/^[A-Z]+/)?.[0] || '',
+                    usageCount: usage.count,
+                    programs: programsArray,
+                    types: sortedTypes,
+                    avgEnrollment: avgEnrollment,
+                    timesOffered: enrollmentStats.timesOffered
+                };
+            });
+
+            setProcessedCourses(processed);
+            setIsProcessing(false);
+        }
+    }, [coursesData, degreePlansData, enrollmentsData]);
+
+    // Get unique subjects
+    const subjects = useMemo(() => {
+        const uniqueSubjects = [...new Set(processedCourses.map(c => c.subject))].sort();
+        return ['All Subjects', ...uniqueSubjects];
+    }, [processedCourses]);
+
+    // Filter courses
+    const filteredCourses = useMemo(() => {
+        return processedCourses.filter(course => {
+            const matchesSubject = selectedSubject === 'All Subjects' || course.subject === selectedSubject;
+            const matchesSearch = !searchTerm ||
+                course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                course.title.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesTypes = selectedTypes.length === 0 ||
+                selectedTypes.some(type => course.types.includes(type));
+            const matchesNeverOffered = !hideNeverOffered || course.timesOffered > 0;
+            return matchesSubject && matchesSearch && matchesTypes && matchesNeverOffered;
+        });
+    }, [processedCourses, selectedSubject, searchTerm, selectedTypes, hideNeverOffered]);
+
+    // Sort courses
+    const sortedCourses = useMemo(() => {
+        const sorted = [...filteredCourses];
+        sorted.sort((a, b) => {
+            let aVal, bVal;
+
+            switch(sortField) {
+                case 'code':
+                    aVal = a.code;
+                    bVal = b.code;
+                    break;
+                case 'title':
+                    aVal = a.title;
+                    bVal = b.title;
+                    break;
+                case 'usage':
+                    aVal = a.usageCount;
+                    bVal = b.usageCount;
+                    break;
+                case 'avgEnrollment':
+                    aVal = a.avgEnrollment;
+                    bVal = b.avgEnrollment;
+                    break;
+                case 'timesOffered':
+                    aVal = a.timesOffered;
+                    bVal = b.timesOffered;
+                    break;
+                default:
+                    aVal = a.code;
+                    bVal = b.code;
+            }
+
+            if (typeof aVal === 'number') {
+                return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+            } else {
+                const comparison = String(aVal).localeCompare(String(bVal));
+                return sortDirection === 'asc' ? comparison : -comparison;
+            }
+        });
+        return sorted;
+    }, [filteredCourses, sortField, sortDirection]);
+
+    // Calculate statistics
+    const stats = useMemo(() => {
+        const totalCourses = filteredCourses.length;
+        const usedCourses = filteredCourses.filter(c => c.usageCount > 0).length;
+        const unusedCourses = totalCourses - usedCourses;
+        const neverOffered = filteredCourses.filter(c => c.timesOffered === 0).length;
+
+        return { totalCourses, usedCourses, unusedCourses, neverOffered };
+    }, [filteredCourses]);
+
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const getSortClass = (field) => {
+        if (sortField !== field) return 'sortable';
+        return sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc';
+    };
+
+    const getCategoryClass = (type) => {
+        const t = type.toLowerCase();
+        if (t.includes('core')) return 'core';
+        if (t.includes('major')) return 'major';
+        if (t.includes('requirements')) return 'requirements';
+        if (t.includes('concentration') && t.includes('elective')) return 'elective';
+        if (t.includes('concentration')) return 'concentration';
+        if (t.includes('micro')) return 'micro-credential';
+        if (t.includes('elective')) return 'elective';
+        return 'other';
+    };
+
+    // Define type order priority
+    const typeOrder = ['Core', 'Major', 'Requirements', 'Concentration', 'Concentration Elective', 'Elective', 'Open Elective', 'Micro-credential'];
+
+    const sortTypes = (types) => {
+        return types.sort((a, b) => {
+            const aIndex = typeOrder.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
+            const bIndex = typeOrder.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
+            const aOrder = aIndex === -1 ? 999 : aIndex;
+            const bOrder = bIndex === -1 ? 999 : bIndex;
+            return aOrder - bOrder;
+        });
+    };
+
+    // Get all unique types across all courses
+    const allTypes = useMemo(() => {
+        const typesSet = new Set();
+        processedCourses.forEach(course => {
+            course.types.forEach(t => typesSet.add(t));
+        });
+        return sortTypes(Array.from(typesSet));
+    }, [processedCourses]);
+
+    const handleTypeToggle = (type) => {
+        setSelectedTypes(prev => {
+            if (prev.includes(type)) {
+                return prev.filter(t => t !== type);
+            } else {
+                return [...prev, type];
+            }
+        });
+    };
+
+    const clearTypeFilters = () => {
+        setSelectedTypes([]);
+    };
+
+    const dataLoaded = coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0;
+    const hasErrors = errors.length > 0;
+    const isError = hasErrors && errors.some(e => e.toLowerCase().includes('failed') || e.toLowerCase().includes('missing'));
+
+    return h('div', { className: 'container' },
+        // Loading overlay
+        isProcessing && h('div', { className: 'loading-overlay' },
+            h('div', { className: 'loading-spinner' },
+                h('div', { className: 'spinner' }),
+                h('div', { className: 'loading-text' }, 'Processing data...')
+            )
+        ),
+
+        h('div', { className: 'header' },
+            h('h1', null, 'Course Inventory Analysis'),
+            h('p', null, 'Purdue University Global - Course Usage and Program Requirements')
+        ),
+
+        // Error/Warning banner
+        hasErrors && h('div', { className: 'error-banner' + (isError ? ' error' : '') },
+            h('div', { className: 'error-title' },
+                h('span', null, isError ? 'Errors' : 'Warnings'),
+                h('button', {
+                    className: 'dismiss-btn',
+                    onClick: () => setErrors([]),
+                    title: 'Dismiss'
+                }, '×')
+            ),
+            h('ul', { className: 'error-list' },
+                errors.map((error, idx) =>
+                    h('li', { key: idx, className: 'error-item' }, error)
+                )
+            )
+        ),
+
+        // Only show toggle after data is loaded
+        dataLoaded && h('div', {
+            className: 'upload-toggle',
+            onClick: () => setUploadSectionExpanded(!uploadSectionExpanded)
+        },
+            h('div', { className: 'upload-toggle-text' },
+                uploadSectionExpanded ? 'Hide Upload Section' : 'Upload New Data Files'
+            ),
+            h('div', {
+                className: 'upload-toggle-icon' + (uploadSectionExpanded ? ' expanded' : '')
+            }, '▼')
+        ),
+
+        // Show upload section when: no data loaded OR toggle is expanded
+        (!dataLoaded || uploadSectionExpanded) && h('div', {
+            className: 'upload-section' + ((!dataLoaded || uploadSectionExpanded) ? ' expanded' : ' collapsed')
+        },
+            h('h2', { style: { marginBottom: '10px', color: '#000000' } }, 'Upload Data Files'),
+            h('p', { style: { color: '#9D968D', marginBottom: '20px', fontSize: '14px' } },
+                dataLoaded ? 'Upload new files to replace the current data.' : 'All three files are required to begin analysis.'
+            ),
+            h('div', { className: 'upload-grid' },
+                h('div', { className: 'upload-box' + (coursesFile ? ' uploaded' : '') },
+                    h('label', null,
+                        h('input', {
+                            type: 'file',
+                            accept: '.csv,.txt',
+                            onChange: (e) => setCoursesFile(e.target.files[0])
+                        }),
+                        h('div', { className: 'upload-icon' }, '📚'),
+                        h('div', { className: 'upload-text' }, 'Master Course List'),
+                        coursesFile && h('div', { className: 'upload-status' }, '✓ ' + coursesFile.name),
+                        !coursesFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
+                            'Click to upload CSV/TXT'
+                        )
+                    )
+                ),
+
+                h('div', { className: 'upload-box' + (degreePlansFile ? ' uploaded' : '') },
+                    h('label', null,
+                        h('input', {
+                            type: 'file',
+                            accept: '.csv,.txt',
+                            onChange: (e) => setDegreePlansFile(e.target.files[0])
+                        }),
+                        h('div', { className: 'upload-icon' }, '🎓'),
+                        h('div', { className: 'upload-text' }, 'Degree Plans'),
+                        degreePlansFile && h('div', { className: 'upload-status' }, '✓ ' + degreePlansFile.name),
+                        !degreePlansFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
+                            'Click to upload CSV/TXT'
+                        )
+                    )
+                ),
+
+                h('div', { className: 'upload-box' + (enrollmentsFile ? ' uploaded' : '') },
+                    h('label', null,
+                        h('input', {
+                            type: 'file',
+                            accept: '.csv,.txt',
+                            onChange: (e) => setEnrollmentsFile(e.target.files[0])
+                        }),
+                        h('div', { className: 'upload-icon' }, '📊'),
+                        h('div', { className: 'upload-text' }, 'Enrollment Figures'),
+                        enrollmentsFile && h('div', { className: 'upload-status' }, '✓ ' + enrollmentsFile.name),
+                        !enrollmentsFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
+                            'Click to upload CSV/TXT'
+                        )
+                    )
+                )
+            )
+        ),
+
+        dataLoaded && h('div', null,
+            h('div', { className: 'stats' },
+                h('div', { className: 'stat-card' },
+                    h('div', { className: 'stat-value' }, stats.totalCourses),
+                    h('div', { className: 'stat-label' }, 'Total Courses')
+                ),
+                h('div', { className: 'stat-card' },
+                    h('div', { className: 'stat-value' }, stats.usedCourses),
+                    h('div', { className: 'stat-label' }, 'Used in Programs')
+                ),
+                h('div', { className: 'stat-card' },
+                    h('div', { className: 'stat-value' }, stats.unusedCourses),
+                    h('div', { className: 'stat-label' }, 'Not used in any programs')
+                ),
+                h('div', { className: 'stat-card' },
+                    h('div', { className: 'stat-value' }, stats.neverOffered),
+                    h('div', { className: 'stat-label' }, 'Never offered')
+                )
+            ),
+
+            h('div', { className: 'controls' },
+                h('div', { className: 'control-group' },
+                    h('label', null, 'Subject Filter'),
+                    h('select', {
+                        value: selectedSubject,
+                        onChange: (e) => setSelectedSubject(e.target.value)
+                    },
+                        subjects.map(subject =>
+                            h('option', { key: subject, value: subject }, subject)
+                        )
+                    )
+                ),
+
+                h('div', { className: 'control-group' },
+                    h('label', null, 'Search Courses'),
+                    h('input', {
+                        type: 'text',
+                        placeholder: 'Search by code or title...',
+                        value: searchTerm,
+                        onChange: (e) => setSearchTerm(e.target.value)
+                    })
+                ),
+
+                h('div', { className: 'checkbox-group', onClick: () => setHideNeverOffered(!hideNeverOffered) },
+                    h('input', {
+                        type: 'checkbox',
+                        checked: hideNeverOffered,
+                        onChange: () => setHideNeverOffered(!hideNeverOffered)
+                    }),
+                    h('label', null, 'Hide courses never offered')
+                )
+            ),
+
+            allTypes.length > 0 && h('div', { className: 'controls' },
+                h('div', { style: { width: '100%' } },
+                    h('div', { className: 'type-filter-label' },
+                        h('span', null, 'Filter by Type'),
+                        selectedTypes.length > 0 && h('button', {
+                            className: 'clear-filters-btn',
+                            onClick: clearTypeFilters
+                        }, 'Clear filters')
+                    ),
+                    h('div', { className: 'type-filter-buttons' },
+                        allTypes.map(type =>
+                            h('button', {
+                                key: type,
+                                className: 'type-filter-btn ' + getCategoryClass(type) + (selectedTypes.includes(type) ? ' active' : ''),
+                                onClick: () => handleTypeToggle(type)
+                            }, type)
+                        )
+                    )
+                )
+            ),
+
+            h('div', { className: 'table-container' },
+                h('table', null,
+                    h('thead', null,
+                        h('tr', null,
+                            h('th', {
+                                className: getSortClass('code'),
+                                onClick: () => handleSort('code')
+                            }, 'CODE'),
+                            h('th', {
+                                className: getSortClass('title'),
+                                onClick: () => handleSort('title')
+                            }, 'TITLE'),
+                            h('th', null, 'TYPES'),
+                            h('th', {
+                                className: 'center ' + getSortClass('usage'),
+                                onClick: () => handleSort('usage')
+                            }, 'DEGREE PLANS USING THIS'),
+                            enrollmentsData.length > 0 && h('th', {
+                                className: 'center ' + getSortClass('avgEnrollment'),
+                                onClick: () => handleSort('avgEnrollment')
+                            }, 'AVG ENROLLMENT'),
+                            enrollmentsData.length > 0 && h('th', {
+                                className: 'center ' + getSortClass('timesOffered'),
+                                onClick: () => handleSort('timesOffered')
+                            }, 'TIMES OFFERED'),
+                            h('th', { className: 'center' }, 'PROGRAMS')
+                        )
+                    ),
+                    h('tbody', null,
+                        sortedCourses.length === 0 && h('tr', null,
+                            h('td', { colSpan: enrollmentsData.length > 0 ? 7 : 5, className: 'no-results' },
+                                'No courses found matching your criteria'
+                            )
+                        ),
+                        sortedCourses.map(course =>
+                            h('tr', { key: course.code },
+                                h('td', { className: 'course-code' }, course.code),
+                                h('td', { className: 'course-title' }, course.title),
+                                h('td', null,
+                                    h('div', { className: 'category-tags' },
+                                        course.types.map((type, idx) =>
+                                            h('span', {
+                                                key: idx,
+                                                className: 'category-tag ' + getCategoryClass(type)
+                                            }, type)
+                                        )
+                                    )
+                                ),
+                                h('td', { className: 'center' },
+                                    h('span', { className: 'usage-count' }, course.usageCount)
+                                ),
+                                enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                    course.avgEnrollment > 0
+                                        ? h('span', { className: 'usage-count' }, course.avgEnrollment)
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                ),
+                                enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                    course.timesOffered > 0
+                                        ? h('span', { className: 'usage-count' }, course.timesOffered)
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                ),
+                                h('td', { className: 'center' },
+                                    course.usageCount > 0
+                                        ? h('button', {
+                                            className: 'info-button',
+                                            onClick: () => setSelectedCourse(course)
+                                        }, 'View Details')
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+
+        selectedCourse && h(CourseModal, {
+            course: selectedCourse,
+            onClose: () => setSelectedCourse(null)
+        }),
+
+        h('div', { className: 'version-footer' },
+            h('span', { className: 'version-number' }, 'Version 1.9.0'),
+            ' — Refactored into separate CSS and JS files'
+        )
+    );
+}
+
+function CourseModal({ course, onClose }) {
+    return h('div', { className: 'modal-overlay', onClick: onClose },
+        h('div', { className: 'modal', onClick: (e) => e.stopPropagation() },
+            h('div', { className: 'modal-header' },
+                h('div', { className: 'modal-title' },
+                    h('h2', null, course.code + ': ' + course.title),
+                    h('div', { className: 'modal-subtitle' }, course.subject)
+                ),
+                h('button', { className: 'close-button', onClick: onClose }, '×')
+            ),
+
+            h('div', { className: 'modal-body' },
+                h('div', { className: 'info-grid', style: { gridTemplateColumns: course.avgEnrollment > 0 ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)' } },
+                    h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Degree Plans Using This'),
+                        h('div', { className: 'info-value' }, course.usageCount)
+                    ),
+                    h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Subject'),
+                        h('div', { className: 'info-value' }, course.subject)
+                    ),
+                    h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Programs'),
+                        h('div', { className: 'info-value' }, course.programs.length)
+                    ),
+                    course.avgEnrollment > 0 && h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Avg Enrollment'),
+                        h('div', { className: 'info-value' }, course.avgEnrollment)
+                    ),
+                    course.timesOffered > 0 && h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Times Offered'),
+                        h('div', { className: 'info-value' }, course.timesOffered)
+                    )
+                ),
+
+                course.deptChair && h('div', { className: 'course-info-section' },
+                    h('div', { className: 'course-info-row' },
+                        h('div', { className: 'course-info-label' }, 'Department Chair'),
+                        h('div', { className: 'course-info-value' }, course.deptChair)
+                    )
+                ),
+
+                h('div', { className: 'modal-section' },
+                    h('h3', null, 'Associated Programs'),
+                    h('div', { className: 'program-list' },
+                        course.programs.map((program, index) =>
+                            h('div', { key: index, className: 'program-item' },
+                                h('div', { className: 'program-name' }, program.name),
+                                h('span', { className: 'program-category' }, program.category)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    );
+}
+
+ReactDOM.render(React.createElement(CourseInventoryApp), document.getElementById('root'));
+}

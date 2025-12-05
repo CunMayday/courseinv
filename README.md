@@ -174,7 +174,9 @@ The application follows Purdue University Global's official color scheme:
 
 ```
 courseinv/
-├── index.html              # Main application (single-file web app)
+├── index.html              # Main HTML file (minimal, loads CSS and JS)
+├── styles.css              # All CSS styling
+├── script.js               # All JavaScript (React app + CDN fallback system)
 ├── README.md              # This file
 ├── CLAUDE.md              # Development guidelines for AI assistants
 ├── prompts.md             # Task history and changelog
@@ -234,6 +236,8 @@ The application includes comprehensive error handling:
 
 ### Version History
 
+- **v1.9.0** - Refactored into separate CSS and JS files to reduce context usage and improve maintainability
+- **v1.8.0** - Added checkbox filter to hide courses that have never been offered
 - **v1.7.0** - Fixed critical data validation bugs (stale data on failed uploads), fixed duplicate elective labels, updated documentation
 - **v1.6.0** - Made Enrollment Figures file required, added sticky table headers
 - **v1.5.0** - Fixed error banner persistence, improved label clarity ("Average Enrollment", "Degree Plans Using This")
