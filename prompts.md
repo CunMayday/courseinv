@@ -1,5 +1,31 @@
 # Project Task History
 
+## 11. Add checkbox filter to hide courses never offered
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"add a checkbox next to the subject filter to filter out courses that have been never been offered (offered zero times)."
+
+**Summary:**
+Added checkbox filter for courses never offered (Version 1.8.0):
+
+1. **New state variable** - Added `hideNeverOffered` state to track checkbox status (line 921)
+2. **Filter logic update** - Updated `filteredCourses` useMemo to check `timesOffered > 0` when checkbox is checked (line 1277)
+   - Added `matchesNeverOffered` condition to filter logic
+   - Added `hideNeverOffered` to useMemo dependency array (line 1280)
+3. **Checkbox UI** - Added checkbox control next to search box in controls section (lines 1570-1577)
+   - Displays as "Hide courses never offered"
+   - Uses Purdue gold accent color (#C28E0E)
+4. **CSS styling** - Added `.checkbox-group` styling for proper checkbox layout (lines 251-271)
+   - Flex layout with 8px gap
+   - 18px checkbox size with gold accent color
+   - Cursor pointer for interactive feel
+5. **Version updates** - Updated to v1.8.0 in header comment and footer
+
+Users can now easily filter out courses that have never been offered (timesOffered = 0) with a single checkbox click, making it easier to focus on actively taught courses.
+
+---
+
 ## 10. Fix critical data integrity and documentation bugs
 **Agent:** Claude (Sonnet 4.5)
 
