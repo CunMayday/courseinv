@@ -18,8 +18,20 @@ White - Clean backgrounds and contrast
 
 
 # context tracking
-Every time you run a task and make changes or answer a question, update the file prompts.md with two pieces of information.  1) The exact prompt you received from me (not a summary, but the verbatim prompt).  2) A brief summary of the list of changes you made or the answer you gave in response. Include which agent you are (Codex, Claude, Gemini Jules, etc).
+**CRITICAL - MANDATORY REQUIREMENT:**
+
+Every time you run a task and make changes or answer a question, you MUST update the file prompts.md BEFORE considering the task complete. This is NOT optional.
+
+Update prompts.md with two pieces of information:
+1. The exact prompt you received from me (not a summary, but the verbatim prompt)
+2. A brief summary of the list of changes you made or the answer you gave in response
+3. Include which agent you are (Codex, Claude, Gemini Jules, etc)
 
 **IMPORTANT:** Latest changes must be added to the TOP of the prompts.md file, not the bottom. The counter should increment upward with each new task. For example, if the latest entry is "## 5. Feature X", the next entry should be "## 6. Feature Y" and should be placed ABOVE entry #5.
+
+**WORKFLOW ENFORCEMENT:**
+- When using TodoWrite tool, ALWAYS add "Update prompts.md" as the final todo item
+- A task is NOT complete until prompts.md has been updated
+- If you finish code changes without updating prompts.md, the task is NOT finished
 
 If the prompts.md file doesn't exist yet, then create it first. The purpose of this file is to keep track of what the user requested and what has been done so that the context is always available for review.

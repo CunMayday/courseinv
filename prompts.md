@@ -1,15 +1,132 @@
 # Project Task History
 
-## 20. Keep four info cards in a row and collapse section history
+## 27. Replace variation radio buttons with toggle switch
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"did we fix this:  The variation toggle is good, but might be clearer as a labeled toggle/switch rather than radio buttons in the controls area"
+
+User confirmation: "yes"
+
+**Summary:**
+Replaced variation display radio buttons with a visual toggle switch for better UX (Version 1.18.3):
+
+1. **Updated variation control in script.js** - Replaced radio button group with toggle switch:
+   - Changed from two radio inputs to a single checkbox-based toggle switch
+   - Added left label "%" and right label "Std Dev" with active state highlighting
+   - Toggle switches between percent and standard deviation modes
+   - More intuitive and visually clearer than radio buttons
+
+2. **Added toggle switch CSS styling in styles.css**:
+   - `.toggle-switch-container` - Flexbox container with 10px gap
+   - `.toggle-label` - Gray labels that turn gold when active
+   - `.toggle-switch` - 44px × 24px switch container
+   - `.toggle-slider` - Rounded background that changes from gray to Purdue gold
+   - `.toggle-slider:before` - White circular knob that slides 20px on toggle
+   - Smooth 0.3s transitions for all state changes
+   - Hover states for better interactivity
+
+3. **Updated version to 1.18.3** across all file headers:
+   - script.js - header comment and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Visual Improvement:**
+- Before: Two radio buttons labeled "%" and "Std Dev"
+- After: Labeled toggle switch with "%" on left, switch in middle, "Std Dev" on right
+- Active label highlights in Purdue gold (#C28E0E)
+- Inactive label shows in gray (#9D968D)
+- Switch background matches active state (gold when toggled to Std Dev)
+
+**Files modified:**
+- script.js - Replaced radio button UI with toggle switch, updated version
+- styles.css - Added toggle switch styling with Purdue branding, updated version
+- index.html - Updated version header
+- prompts.md - Added this task entry
+
+---
+
+## 26. Fix trend symbol inconsistency and reorder documentation
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"we made some changes. review prompts.md and the code and tell me if the changes are good, or if there are issues that need to be addressed"
+
+User confirmation after issue identification: "yes"
+
+**Summary:**
+Fixed critical bugs found during code review of versions 1.12.0 through 1.18.1 (Version 1.18.2):
+
+1. **Fixed trend symbol inconsistency** - Changed default trend symbol from hyphen to em dash:
+   - Changed `let sectionTrend = '-';` to `let sectionTrend = '—';` at script.js:432
+   - This fixes visual inconsistency with arrow symbols (↑ ↓ →)
+   - Resolves sorting bug where trend order map expected `'—'` but data used `'-'`
+
+2. **Reordered prompts.md tasks** - Reorganized tasks 18-25 to reverse chronological order:
+   - Now properly ordered: #25, #24, #23, #22, #21, #20, #19, #18 (newest first)
+   - Previous order was scattered: #20, #21, #22, #19, #18
+   - Improves documentation readability and project history understanding
+
+3. **Updated version to 1.18.2** across all file headers:
+   - script.js - header comment and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Files modified:**
+- script.js - Fixed trend symbol bug, updated version header and footer
+- prompts.md - Reordered tasks chronologically, added this task entry
+- index.html - Updated version header
+- styles.css - Updated version header
+
+---
+
+## 25. Remove change log button/modal
 **Agent:** Codex
 
 **User Prompt:**
-"I want to fit 4 boxes in a row, don't drop the fourh one down to second row.  Also, make the section history byt track table collapsible, and collapse it by default."
+"let's just remove the i button and the feature.  I will think of this separately."
 
 **Summary:**
-- Forced the detail modal info grid to always show four cards (Programs, Avg Enrollment, Times Offered, Avg Sections/Term) in a single row with fallbacks.
-- Added a default-collapsed toggle to the Section History by Track block and styled the header/button for the collapsible section.
-- Bumped version to 1.15.0 in code headers/footers and updated styles for the new toggle.
+- Removed the change log button and modal overlay; header restored to text-only.
+- Cleaned up related styles and versioned to 1.18.1 across code files.
+
+---
+
+## 24. Add change log pop-up button
+**Agent:** Codex
+
+**User Prompt:**
+"Add a button on the main page like an "i" with a circle that upon clicking will show the change log in a pop-up."
+
+**Summary:**
+- Added an "i" info-circle button in the header that opens a modal showing recent change log entries.
+- Styled the info button and modal list; added local changelog data and state to toggle visibility.
+- Bumped version to 1.18.0 in code comments/footers and documented in prompts.md.
+
+---
+
+## 23. Add variation display toggle
+**Agent:** Codex
+
+**User Prompt:**
+"add a small switch to the variation column, so user can select between % variation and just the variation number (rounded to 1 significant digit after the decimal)."
+
+**Summary:**
+- Added a Variation Display toggle (percent vs std dev) that updates the header, sorting, and per-row values; std dev is rounded to one decimal.
+- Stored both percent and std dev metrics during processing and wired the sort logic to follow the selected mode.
+- Bumped version to 1.17.0 in code comments/footers.
+
+---
+
+## 22. Fix white screen from program color change
+**Agent:** Codex
+
+**User Prompt:**
+"we did not commit any of these to github.  these are all local..  can you undo the changes in 1.16 or should we try to fix the error?"
+
+**Summary:**
+- Fixed a ReferenceError causing a white screen by adding a locally scoped category helper inside CourseModal for program tags, aligning colors without breaking scope.
+- Updated version headers/footers to 1.16.1 in code files.
 
 ---
 
@@ -23,6 +140,19 @@
 - Applied the same category color classes to program tags in the detail modal so they match the main list colors (core/major/requirements/concentration/elective/micro-credential/other).
 - Updated CSS to share styling between list tags and modal program tags, and added text casing for consistency.
 - Bumped version to 1.16.0 across code headers/footers.
+
+---
+
+## 20. Keep four info cards in a row and collapse section history
+**Agent:** Codex
+
+**User Prompt:**
+"I want to fit 4 boxes in a row, don't drop the fourh one down to second row.  Also, make the section history byt track table collapsible, and collapse it by default."
+
+**Summary:**
+- Forced the detail modal info grid to always show four cards (Programs, Avg Enrollment, Times Offered, Avg Sections/Term) in a single row with fallbacks.
+- Added a default-collapsed toggle to the Section History by Track block and styled the header/button for the collapsible section.
+- Bumped version to 1.15.0 in code headers/footers and updated styles for the new toggle.
 
 ---
 

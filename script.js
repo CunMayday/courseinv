@@ -1,4 +1,9 @@
 /*
+Version 1.18.3 - Replaced variation radio buttons with toggle switch for better UX.
+Version 1.18.2 - Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.
+Version 1.18.1 - Removed change log button/modal.
+Version 1.17.0 - Added variation display toggle (% vs std dev) in table.
+Version 1.16.1 - Fixed modal program tag coloring by scoping category helper locally.
 Version 1.16.0 - Matched program type colors in detail modal to main list category colors.
 Version 1.15.0 - Kept four info cards in a single row and made Section History collapsible by default.
 Version 1.14.0 - Simplified detail modal: removed subject, degree plan count, variation/trend cards, and department chair row.
@@ -90,6 +95,7 @@ function CourseInventoryApp() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [errors, setErrors] = useState([]);
     const [hideNeverOffered, setHideNeverOffered] = useState(false);
+    const [variationMode, setVariationMode] = useState('stddev'); // 'percent' or 'stddev'
 
     // Parse uploaded CSV files
     useEffect(() => {
@@ -423,7 +429,8 @@ function CourseInventoryApp() {
 
                 // Calculate new metrics: avgSectionsPerTerm, sectionVariation, sectionTrend
                 let avgSectionsPerTerm = 0;
-                let sectionVariation = 0;
+                let sectionVariationPercent = 0;
+                let sectionStdDev = 0;
                 let sectionTrend = '—';
 
                 if (enrollmentStats.termData && enrollmentStats.termData.size > 0) {
@@ -439,7 +446,8 @@ function CourseInventoryApp() {
                         const mean = totalSections / numTerms;
                         const variance = sectionsPerTerm.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / numTerms;
                         const stdDev = Math.sqrt(variance);
-                        sectionVariation = ((stdDev / mean) * 100).toFixed(1);
+                        sectionStdDev = parseFloat(stdDev.toFixed(1));
+                        sectionVariationPercent = parseFloat(((stdDev / mean) * 100).toFixed(1));
                     }
 
                     // Trend: compare first half vs second half of terms
@@ -475,7 +483,8 @@ function CourseInventoryApp() {
                     avgEnrollment: avgEnrollment,
                     timesOffered: enrollmentStats.timesOffered,
                     avgSectionsPerTerm: avgSectionsPerTerm,
-                    sectionVariation: sectionVariation,
+                    sectionVariationPercent: sectionVariationPercent,
+                    sectionStdDev: sectionStdDev,
                     sectionTrend: sectionTrend
                 };
             });
@@ -536,10 +545,14 @@ function CourseInventoryApp() {
                     aVal = parseFloat(a.avgSectionsPerTerm) || 0;
                     bVal = parseFloat(b.avgSectionsPerTerm) || 0;
                     break;
-                case 'sectionVariation':
-                    aVal = parseFloat(a.sectionVariation) || 0;
-                    bVal = parseFloat(b.sectionVariation) || 0;
-                    break;
+            case 'sectionVariation':
+                aVal = variationMode === 'percent'
+                    ? (parseFloat(a.sectionVariationPercent) || 0)
+                    : (parseFloat(a.sectionStdDev) || 0);
+                bVal = variationMode === 'percent'
+                    ? (parseFloat(b.sectionVariationPercent) || 0)
+                    : (parseFloat(b.sectionStdDev) || 0);
+                break;
                 case 'sectionTrend':
                     // Sort by trend: ↑ = 2, → = 1, ↓ = 0
                     const trendOrder = { '↑': 2, '→': 1, '↓': 0, '—': -1 };
@@ -773,21 +786,41 @@ function CourseInventoryApp() {
                     )
                 ),
 
-                h('div', { className: 'control-group' },
-                    h('label', null, 'Search Courses'),
-                    h('input', {
-                        type: 'text',
-                        placeholder: 'Search by code or title...',
-                        value: searchTerm,
-                        onChange: (e) => setSearchTerm(e.target.value)
-                    })
-                ),
+                    h('div', { className: 'control-group' },
+                        h('label', null, 'Search Courses'),
+                        h('input', {
+                            type: 'text',
+                            placeholder: 'Search by code or title...',
+                            value: searchTerm,
+                            onChange: (e) => setSearchTerm(e.target.value)
+                        })
+                    ),
 
-                h('div', { className: 'checkbox-group', onClick: () => setHideNeverOffered(!hideNeverOffered) },
-                    h('input', {
-                        type: 'checkbox',
-                        checked: hideNeverOffered,
-                        onChange: () => setHideNeverOffered(!hideNeverOffered)
+                    enrollmentsData.length > 0 && h('div', { className: 'control-group' },
+                        h('label', null, 'Variation Display'),
+                        h('div', { className: 'toggle-switch-container' },
+                            h('span', {
+                                className: 'toggle-label' + (variationMode === 'percent' ? ' active' : '')
+                            }, '%'),
+                            h('label', { className: 'toggle-switch' },
+                                h('input', {
+                                    type: 'checkbox',
+                                    checked: variationMode === 'stddev',
+                                    onChange: () => setVariationMode(variationMode === 'percent' ? 'stddev' : 'percent')
+                                }),
+                                h('span', { className: 'toggle-slider' })
+                            ),
+                            h('span', {
+                                className: 'toggle-label' + (variationMode === 'stddev' ? ' active' : '')
+                            }, 'Std Dev')
+                        )
+                    ),
+
+                    h('div', { className: 'checkbox-group', onClick: () => setHideNeverOffered(!hideNeverOffered) },
+                        h('input', {
+                            type: 'checkbox',
+                            checked: hideNeverOffered,
+                            onChange: () => setHideNeverOffered(!hideNeverOffered)
                     }),
                     h('label', null, 'Hide courses never offered')
                 )
@@ -846,7 +879,7 @@ function CourseInventoryApp() {
                             enrollmentsData.length > 0 && h('th', {
                                 className: 'center ' + getSortClass('sectionVariation'),
                                 onClick: () => handleSort('sectionVariation')
-                            }, 'VARIATION (%)'),
+                            }, variationMode === 'percent' ? 'VARIATION (%)' : 'VARIATION (STD DEV)'),
                             enrollmentsData.length > 0 && h('th', {
                                 className: 'center ' + getSortClass('sectionTrend'),
                                 onClick: () => handleSort('sectionTrend')
@@ -893,9 +926,13 @@ function CourseInventoryApp() {
                                         : h('span', { style: { color: '#9D968D' } }, '—')
                                 ),
                                 enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    course.sectionVariation > 0
-                                        ? h('span', { className: 'usage-count' }, course.sectionVariation + '%')
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                    variationMode === 'percent'
+                                        ? (course.sectionVariationPercent > 0
+                                            ? h('span', { className: 'usage-count' }, course.sectionVariationPercent + '%')
+                                            : h('span', { style: { color: '#9D968D' } }, '—'))
+                                        : (course.sectionStdDev > 0
+                                            ? h('span', { className: 'usage-count' }, course.sectionStdDev)
+                                            : h('span', { style: { color: '#9D968D' } }, '—'))
                                 ),
                                 enrollmentsData.length > 0 && h('td', { className: 'center' },
                                     h('span', {
@@ -925,8 +962,8 @@ function CourseInventoryApp() {
         }),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.16.0'),
-            ' — Matched program tag colors in detail modal'
+            h('span', { className: 'version-number' }, 'Version 1.18.3'),
+            ' — UX: Toggle switch for variation display'
         )
     );
 }
@@ -938,6 +975,18 @@ function CourseModal({ course, enrollmentsData, onClose }) {
     const [historyCollapsed, setHistoryCollapsed] = useState(true);
     const chartRef = React.useRef(null);
     const chartInstanceRef = React.useRef(null);
+
+    const getCategoryClassModal = (type) => {
+        const t = (type || '').toLowerCase();
+        if (t.includes('core')) return 'core';
+        if (t.includes('major')) return 'major';
+        if (t.includes('requirements')) return 'requirements';
+        if (t.includes('concentration') && t.includes('elective')) return 'elective';
+        if (t.includes('concentration')) return 'concentration';
+        if (t.includes('micro')) return 'micro-credential';
+        if (t.includes('elective')) return 'elective';
+        return 'other';
+    };
 
     // Calculate ALL term history (not limited to 5) for chart
     const allTermHistory = useMemo(() => {
@@ -1295,7 +1344,7 @@ function CourseModal({ course, enrollmentsData, onClose }) {
                             h('div', { key: index, className: 'program-item' },
                                 h('div', { className: 'program-name' }, program.name),
                                 h('span', {
-                                    className: 'program-category ' + getCategoryClass(program.category)
+                                    className: 'program-category ' + getCategoryClassModal(program.category)
                                 }, program.category)
                             )
                         )
