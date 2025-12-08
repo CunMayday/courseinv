@@ -1,4 +1,5 @@
 /*
+Version 1.11.0 - Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).
 Version 1.10.0 - Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).
 Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
 Version 1.8.0 - Added checkbox filter to hide courses that have never been offered.
@@ -907,17 +908,83 @@ function CourseInventoryApp() {
 
         selectedCourse && h(CourseModal, {
             course: selectedCourse,
+            enrollmentsData: enrollmentsData,
             onClose: () => setSelectedCourse(null)
         }),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.10.0'),
-            ' — Added section analysis columns (Avg Sections/Term, Variation, Trend)'
+            h('span', { className: 'version-number' }, 'Version 1.11.0'),
+            ' — Added Section History by Track in detail modal'
         )
     );
 }
 
-function CourseModal({ course, onClose }) {
+function CourseModal({ course, enrollmentsData, onClose }) {
+    // Calculate term history on-demand
+    const termHistory = useMemo(() => {
+        if (!enrollmentsData || enrollmentsData.length === 0) return [];
+
+        // Group by term code and calculate stats
+        const termMap = new Map();
+
+        enrollmentsData.forEach(enrollment => {
+            const courseCode = (enrollment['Course Number'] || '').trim();
+            if (courseCode !== course.code) return; // Only for this course
+
+            const termName = (enrollment['Term Name'] || '').trim();
+            const termCode = termName.substring(0, 5); // e.g., "2504C"
+            const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
+
+            if (!termCode) return;
+
+            if (!termMap.has(termCode)) {
+                termMap.set(termCode, {
+                    termCode: termCode,
+                    sections: 0,
+                    totalEnrollment: 0,
+                    track: termCode.charAt(4) || '' // Last character is the track
+                });
+            }
+
+            const stats = termMap.get(termCode);
+            stats.sections += 1;
+            stats.totalEnrollment += enrollmentCount;
+        });
+
+        // Convert to array and sort
+        const termsArray = Array.from(termMap.values());
+
+        // Sort by track (A, B, C...) then by term code (chronologically)
+        termsArray.sort((a, b) => {
+            // First sort by track
+            if (a.track !== b.track) {
+                return a.track.localeCompare(b.track);
+            }
+            // Then by term code (descending for most recent first within each track)
+            return b.termCode.localeCompare(a.termCode);
+        });
+
+        // Get last 5 terms per track
+        const trackMap = new Map();
+        termsArray.forEach(term => {
+            if (!trackMap.has(term.track)) {
+                trackMap.set(term.track, []);
+            }
+            const trackTerms = trackMap.get(term.track);
+            if (trackTerms.length < 5) {
+                trackTerms.push(term);
+            }
+        });
+
+        // Flatten back to array, maintaining track grouping
+        const result = [];
+        Array.from(trackMap.keys()).sort().forEach(track => {
+            result.push(...trackMap.get(track));
+        });
+
+        return result;
+    }, [course.code, enrollmentsData]);
+
     return h('div', { className: 'modal-overlay', onClick: onClose },
         h('div', { className: 'modal', onClick: (e) => e.stopPropagation() },
             h('div', { className: 'modal-header' },
@@ -968,6 +1035,22 @@ function CourseModal({ course, onClose }) {
                     h('div', { className: 'course-info-row' },
                         h('div', { className: 'course-info-label' }, 'Department Chair'),
                         h('div', { className: 'course-info-value' }, course.deptChair)
+                    )
+                ),
+
+                termHistory.length > 0 && h('div', { className: 'modal-section' },
+                    h('h3', null, 'Section History by Track (Last 5 Terms per Track)'),
+                    h('div', { className: 'term-history-list' },
+                        termHistory.map((term, index) =>
+                            h('div', { key: index, className: 'term-history-item' },
+                                h('div', { className: 'term-code' }, term.termCode),
+                                h('div', { className: 'term-stats' },
+                                    h('span', { className: 'term-sections' }, term.sections + ' section' + (term.sections !== 1 ? 's' : '')),
+                                    h('span', { className: 'term-separator' }, ' • '),
+                                    h('span', { className: 'term-enrollment' }, term.totalEnrollment + ' students')
+                                )
+                            )
+                        )
                     )
                 ),
 
