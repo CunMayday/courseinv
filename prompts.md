@@ -1,5 +1,243 @@
 # Project Task History
 
+## 20. Keep four info cards in a row and collapse section history
+**Agent:** Codex
+
+**User Prompt:**
+"I want to fit 4 boxes in a row, don't drop the fourh one down to second row.  Also, make the section history byt track table collapsible, and collapse it by default."
+
+**Summary:**
+- Forced the detail modal info grid to always show four cards (Programs, Avg Enrollment, Times Offered, Avg Sections/Term) in a single row with fallbacks.
+- Added a default-collapsed toggle to the Section History by Track block and styled the header/button for the collapsible section.
+- Bumped version to 1.15.0 in code headers/footers and updated styles for the new toggle.
+
+---
+
+## 21. Match program type colors in detail modal
+**Agent:** Codex
+
+**User Prompt:**
+"the main listing that shows the types has color coding , we should make sure that the same colors are used in the details screem when the assocaited programs are listed alond with the type they are.  right now, they all use the same color in the details popup"
+
+**Summary:**
+- Applied the same category color classes to program tags in the detail modal so they match the main list colors (core/major/requirements/concentration/elective/micro-credential/other).
+- Updated CSS to share styling between list tags and modal program tags, and added text casing for consistency.
+- Bumped version to 1.16.0 across code headers/footers.
+
+---
+
+## 19. Simplify detail modal info cards
+**Agent:** Codex
+
+**User Prompt:**
+"in the detail view, the top of the page has a section with some information in gray boxes.  remove the following from those: subject, degree plans using this, variation, trend.
+Also remove the department chair line."
+
+**Summary:**
+- Removed subject, degree plan count, variation, and trend info cards from the modal’s top info grid; dropped the department chair row entirely.
+- Kept programs, average enrollment, times offered, and average sections/term; adjusted grid columns to fit remaining cards.
+- Bumped version to 1.14.0 and updated version headers/footers in index.html, script.js, and styles.css.
+
+---
+
+## 18. Unify chart track dropdown across modes
+**Agent:** Codex
+
+**User Prompt:**
+"we should use the same dropdown box approach that we use in  "by term code" in "by base term" as well.  remove the tracks radio button for all tracks and invididual tracks, and implement the same approach as used on "by term code" with a dropdown.  default is "all tracks" and the dropdown allows showing just one track."
+
+**Summary:**
+- Replaced base-term track radio buttons with the same track dropdown used in term-code mode, defaulting to All Tracks and allowing a single-track view for both sections and enrollment charts.
+- Adjusted chart data/label logic to respect the unified dropdown for both x-axis modes; kept legend hidden since only one series is shown at a time.
+- Bumped version to 1.13.0 and updated version comments/footers in index.html, script.js, and styles.css.
+
+---
+
+## 17. Add interactive Chart.js line chart to detail modal
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"let's add a feature to the detail view.  I want it to show a chart showing the term by term number of sections trend as a line chart.  so the same data that is displayed below, but shown as a chart, over time.  the chart should allow selecting a specific track, or show all the tracks combined over time.  ask questions if you need to before starting."
+
+User clarifications:
+1. Chart library: "ok, let's go with chart.js then we can reconsider."
+2. Track selection: "let's do dropdown"
+3. Chart placement: "put it above the track list"
+4. Time range: "do it for all the data"
+5. Y-axis when showing all tracks: "total"
+6. X-axis format: "do it both ways, selected with a radio button"
+7. Additional metrics: "let's do both, also with a radio button"
+
+**Summary:**
+Added interactive Chart.js line chart visualization to course detail modal (Version 1.12.0):
+
+1. **Chart.js Integration**:
+   - Added Chart.js 4.4.0 to CDN loading system with fallback URLs
+   - Integrated into existing loadScript sequence (React → ReactDOM → PapaParse → Chart.js)
+
+2. **Chart Data Preparation**:
+   - Created `allTermHistory` useMemo to calculate ALL enrollment history (not limited to 5 terms)
+   - Calculates sections and total enrollment per term code
+   - Extracts available tracks from data
+
+3. **Chart Controls** (3 control groups):
+   - **Display Mode Radio Buttons**:
+     - "By Term Code" (full): Shows individual term codes (2401A, 2401B, 2401C...)
+     - "By Base Term" (base): Shows base terms (2401, 2402...) with separate lines per track
+   - **Track Dropdown** (only shown in "By Term Code" mode):
+     - "All Tracks" option
+     - Individual track options (Track A, Track B, etc.)
+   - **Metric Radio Buttons**:
+     - "Sections": Number of sections offered
+     - "Enrollment": Total enrollment numbers
+
+4. **Chart Rendering** (useEffect + useRef):
+   - Canvas element with Chart.js line chart
+   - Two distinct visualization modes:
+     - **Full mode**: Single line filtered by selected track
+     - **Base mode**: Multiple lines (one per track) with track-specific colors
+   - Dynamic chart updates when controls change
+   - Proper cleanup/destroy of chart instances on re-render
+   - 400px height, responsive width
+
+5. **Styling**:
+   - Chart controls container with flexbox layout, light background
+   - Radio button groups with proper spacing
+   - Dropdown with Purdue brand colors and focus states
+   - Chart container with padding and border
+   - All using Purdue color palette (#C28E0E gold, etc.)
+
+6. **UI Layout**:
+   - Chart section appears above "Section History by Track" list
+   - Only displays when enrollment data exists
+   - Maintains existing term history list below chart
+
+**Technical Details**:
+- Chart colors: Purdue gold (#C28E0E) for primary, with additional brand colors for multi-track view
+- X-axis modes handle term aggregation differently
+- Y-axis starts at zero with step size of 1 for sections
+- Chart title updates based on selected metric
+
+**Files modified:**
+- script.js - Added Chart.js CDN loading, chart state management, data prep, rendering logic, and UI controls
+- styles.css - Added chart-controls, chart-control-group, radio-group, radio-label, track-dropdown, and chart-container styles
+- index.html - Updated version to 1.12.0
+- prompts.md - Added this task entry
+
+---
+
+## 16. Update CLAUDE.md to enforce prompts.md documentation
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"why do you not follow CLAUDE.md to update prompts.md every time? what do I need to do to make all of that happens?"
+
+User response to my explanation: "yes"
+
+**Summary:**
+Enhanced the CLAUDE.md instructions to make prompts.md updates a mandatory, enforceable requirement:
+
+1. **Added "CRITICAL - MANDATORY REQUIREMENT" header** - Makes it impossible to miss
+2. **Reworded to emphasize obligation** - Changed "Every time you run a task..." to "you MUST update... BEFORE considering the task complete. This is NOT optional."
+3. **Added WORKFLOW ENFORCEMENT section** with three explicit rules:
+   - When using TodoWrite tool, ALWAYS add "Update prompts.md" as the final todo item
+   - A task is NOT complete until prompts.md has been updated
+   - If you finish code changes without updating prompts.md, the task is NOT finished
+
+4. **Updated current task in prompts.md** - Added this entry (Task #16) to document the CLAUDE.md changes
+
+**Files modified:**
+- CLAUDE.md - Enhanced context tracking section with mandatory enforcement language
+- prompts.md - Added this task entry
+
+---
+
+## 15. Add Section History by Track to detail modal
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"let's add a feature to the detail view. it should show all the number of sections for that course in the last 5 terms by track. A course would look like this : 2504C, where the first two characters are the year, second two characters are the term during the year, and the last character is the track on which it runs. Sort the list by track so that all A track is together, all B track is together, and so on."
+
+**Summary:**
+Added Section History by Track feature to the course detail modal (Version 1.11.0):
+
+1. **On-demand calculation** - Implemented Option B approach (calculate only when modal opens)
+   - Passes `enrollmentsData` to CourseModal component
+   - Uses React's `useMemo` to calculate term history on-demand
+   - Only processes data for courses that user actually views
+
+2. **Term history calculation logic**:
+   - Filters enrollment data for the selected course
+   - Groups sections by 5-character term code (e.g., "2504C")
+   - Tracks sections count and total enrollment per term
+   - Extracts track identifier from last character (A, B, C, etc.)
+
+3. **Sorting and filtering**:
+   - Primary sort: By track (A, B, C...)
+   - Secondary sort: By term code chronologically (most recent first within each track)
+   - Limits display to last 5 terms per track
+
+4. **Display format**:
+   - Term code in monospace font (e.g., "2504C")
+   - Sections count highlighted in Purdue gold
+   - Total enrollment for that term
+   - Format: "2504C   5 sections • 420 students"
+
+5. **Styling** - Added CSS classes:
+   - `.term-history-list` - Container for term list
+   - `.term-history-item` - Individual term row
+   - `.term-code` - Monospace term identifier
+   - `.term-sections` - Highlighted section count
+   - `.term-enrollment` - Student count
+
+**Files modified:**
+- script.js - Added on-demand calculation and modal display logic
+- styles.css - Added term history styling
+- index.html - Updated version to 1.11.0
+
+---
+
+## 14. Add enrollment analysis columns
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"add three new columns to the analysis. first will be the average sections offered per term. our terms are in column b of the enrollments data. use only the first 5 characters and ignore any dates. the second column should show the variation in the number of sections offered per term. The third column should show some indication of trends in number of sections offered."
+
+**Summary:**
+Added three new enrollment analysis columns to the main table (Version 1.10.0):
+
+1. **Average Sections Per Term**:
+   - Calculates total sections divided by number of unique terms
+   - Displays as decimal (e.g., "2.5")
+   - Uses first 5 characters of Term Name field (e.g., "2504C")
+
+2. **Variation (Coefficient of Variation)**:
+   - Shows how much section counts vary as a percentage
+   - Formula: (Standard Deviation / Mean) × 100
+   - Lower % = more consistent, Higher % = more variable
+   - Displays with "%" suffix
+
+3. **Trend Indicator**:
+   - Compares first half vs second half of terms chronologically
+   - **↑** = Increasing (>10% growth)
+   - **→** = Stable (-10% to +10%)
+   - **↓** = Decreasing (>10% decline)
+
+4. **Implementation details**:
+   - Enhanced enrollment statistics calculation to track `termData` Map
+   - Each row in enrollment data = one section
+   - Sections counted per unique 5-character term code
+   - Added sorting functionality for all three columns
+   - Updated table colspan from 7 to 10
+   - Added metrics to detail modal
+
+**Files modified:**
+- script.js - Enhanced data processing, added calculations, table columns, sorting, modal display
+- styles.css - Updated version header
+- index.html - Updated version header
+
+---
+
 ## 13. Review refactor split correctness
 **Agent:** Codex
 

@@ -1,4 +1,9 @@
 /*
+Version 1.16.0 - Matched program type colors in detail modal to main list category colors.
+Version 1.15.0 - Kept four info cards in a single row and made Section History collapsible by default.
+Version 1.14.0 - Simplified detail modal: removed subject, degree plan count, variation/trend cards, and department chair row.
+Version 1.13.0 - Unified track selection via dropdown for both term code and base term charts (defaults to All Tracks).
+Version 1.12.0 - Added interactive Chart.js line chart to detail modal showing section trends over time with track filtering and dual metric display.
 Version 1.11.0 - Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).
 Version 1.10.0 - Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).
 Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
@@ -46,12 +51,19 @@ var papaparseUrls = [
     'https://unpkg.com/papaparse@5.4.1/papaparse.min.js',
     'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js'
 ];
+var chartjsUrls = [
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'
+];
 
 // Load libraries in sequence with fallbacks, then start app
 loadScript(reactUrls, function() {
     loadScript(reactDomUrls, function() {
         loadScript(papaparseUrls, function() {
-            startApp();
+            loadScript(chartjsUrls, function() {
+                startApp();
+            });
         });
     });
 });
@@ -913,26 +925,32 @@ function CourseInventoryApp() {
         }),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.11.0'),
-            ' — Added Section History by Track in detail modal'
+            h('span', { className: 'version-number' }, 'Version 1.16.0'),
+            ' — Matched program tag colors in detail modal'
         )
     );
 }
 
 function CourseModal({ course, enrollmentsData, onClose }) {
-    // Calculate term history on-demand
-    const termHistory = useMemo(() => {
+    const [selectedTrack, setSelectedTrack] = useState('all'); // 'all' or specific track
+    const [xAxisMode, setXAxisMode] = useState('full'); // 'full' = term codes, 'base' = base terms
+    const [metricMode, setMetricMode] = useState('sections'); // 'sections' or 'enrollment'
+    const [historyCollapsed, setHistoryCollapsed] = useState(true);
+    const chartRef = React.useRef(null);
+    const chartInstanceRef = React.useRef(null);
+
+    // Calculate ALL term history (not limited to 5) for chart
+    const allTermHistory = useMemo(() => {
         if (!enrollmentsData || enrollmentsData.length === 0) return [];
 
-        // Group by term code and calculate stats
         const termMap = new Map();
 
         enrollmentsData.forEach(enrollment => {
             const courseCode = (enrollment['Course Number'] || '').trim();
-            if (courseCode !== course.code) return; // Only for this course
+            if (courseCode !== course.code) return;
 
             const termName = (enrollment['Term Name'] || '').trim();
-            const termCode = termName.substring(0, 5); // e.g., "2504C"
+            const termCode = termName.substring(0, 5);
             const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
 
             if (!termCode) return;
@@ -942,7 +960,7 @@ function CourseModal({ course, enrollmentsData, onClose }) {
                     termCode: termCode,
                     sections: 0,
                     totalEnrollment: 0,
-                    track: termCode.charAt(4) || '' // Last character is the track
+                    track: termCode.charAt(4) || ''
                 });
             }
 
@@ -951,20 +969,28 @@ function CourseModal({ course, enrollmentsData, onClose }) {
             stats.totalEnrollment += enrollmentCount;
         });
 
-        // Convert to array and sort
-        const termsArray = Array.from(termMap.values());
+        return Array.from(termMap.values()).sort((a, b) => a.termCode.localeCompare(b.termCode));
+    }, [course.code, enrollmentsData]);
 
-        // Sort by track (A, B, C...) then by term code (chronologically)
+    // Get available tracks
+    const availableTracks = useMemo(() => {
+        const tracks = new Set();
+        allTermHistory.forEach(term => tracks.add(term.track));
+        return Array.from(tracks).sort();
+    }, [allTermHistory]);
+
+    // Calculate term history for display list (limited to last 5 per track)
+    const termHistory = useMemo(() => {
+        if (allTermHistory.length === 0) return [];
+
+        const termsArray = [...allTermHistory];
         termsArray.sort((a, b) => {
-            // First sort by track
             if (a.track !== b.track) {
                 return a.track.localeCompare(b.track);
             }
-            // Then by term code (descending for most recent first within each track)
             return b.termCode.localeCompare(a.termCode);
         });
 
-        // Get last 5 terms per track
         const trackMap = new Map();
         termsArray.forEach(term => {
             if (!trackMap.has(term.track)) {
@@ -976,14 +1002,147 @@ function CourseModal({ course, enrollmentsData, onClose }) {
             }
         });
 
-        // Flatten back to array, maintaining track grouping
         const result = [];
         Array.from(trackMap.keys()).sort().forEach(track => {
             result.push(...trackMap.get(track));
         });
 
         return result;
-    }, [course.code, enrollmentsData]);
+    }, [allTermHistory]);
+
+    // Render chart with Chart.js
+    useEffect(() => {
+        if (!chartRef.current || allTermHistory.length === 0) return;
+
+        // Destroy previous chart instance
+        if (chartInstanceRef.current) {
+            chartInstanceRef.current.destroy();
+        }
+
+        // Prepare data based on settings
+        let chartData;
+
+        if (xAxisMode === 'full') {
+            // Show full term codes (2401A, 2401B, etc.) with dropdown track filter
+            const sortedTerms = [...allTermHistory].sort((a, b) => a.termCode.localeCompare(b.termCode));
+            const filteredTerms = selectedTrack === 'all'
+                ? sortedTerms
+                : sortedTerms.filter(t => t.track === selectedTrack);
+
+            chartData = {
+                labels: filteredTerms.map(t => t.termCode),
+                datasets: [{
+                    label: metricMode === 'sections'
+                        ? (selectedTrack === 'all' ? 'Number of Sections (All Tracks)' : 'Number of Sections (Track ' + selectedTrack + ')')
+                        : (selectedTrack === 'all' ? 'Total Enrollment (All Tracks)' : 'Total Enrollment (Track ' + selectedTrack + ')'),
+                    data: filteredTerms.map(t => metricMode === 'sections' ? t.sections : t.totalEnrollment),
+                    borderColor: '#C28E0E',
+                    backgroundColor: 'rgba(194, 142, 14, 0.1)',
+                    tension: 0.1
+                }]
+            };
+        } else {
+            // Show base terms (2401, 2402, etc.) with dropdown track filter
+            const baseTermMap = new Map();
+
+            allTermHistory.forEach(term => {
+                const baseTerm = term.termCode.substring(0, 4);
+                if (!baseTermMap.has(baseTerm)) {
+                    baseTermMap.set(baseTerm, {});
+                }
+                const baseData = baseTermMap.get(baseTerm);
+                if (!baseData[term.track]) {
+                    baseData[term.track] = { sections: 0, totalEnrollment: 0 };
+                }
+                baseData[term.track].sections += term.sections;
+                baseData[term.track].totalEnrollment += term.totalEnrollment;
+            });
+
+            const sortedBaseTerms = Array.from(baseTermMap.keys()).sort();
+            const colors = {
+                'A': '#C28E0E',
+                'B': '#CEB888',
+                'C': '#373A36',
+                'D': '#9D968D',
+                'E': '#000000'
+            };
+
+            if (selectedTrack === 'all') {
+                // Single line with all tracks combined
+                const combinedData = sortedBaseTerms.map(baseTerm => {
+                    const trackEntries = Object.values(baseTermMap.get(baseTerm) || {});
+                    const sectionsSum = trackEntries.reduce((sum, t) => sum + (t.sections || 0), 0);
+                    const enrollmentSum = trackEntries.reduce((sum, t) => sum + (t.totalEnrollment || 0), 0);
+                    return metricMode === 'sections' ? sectionsSum : enrollmentSum;
+                });
+
+                chartData = {
+                    labels: sortedBaseTerms,
+                    datasets: [{
+                        label: metricMode === 'sections' ? 'Sections (All Tracks)' : 'Enrollment (All Tracks)',
+                        data: combinedData,
+                        borderColor: '#C28E0E',
+                        backgroundColor: 'rgba(194, 142, 14, 0.1)',
+                        tension: 0.1
+                    }]
+                };
+            } else {
+                const singleData = sortedBaseTerms.map(baseTerm => {
+                    const trackData = (baseTermMap.get(baseTerm) || {})[selectedTrack];
+                    if (!trackData) return 0;
+                    return metricMode === 'sections' ? trackData.sections : trackData.totalEnrollment;
+                });
+
+                chartData = {
+                    labels: sortedBaseTerms,
+                    datasets: [{
+                        label: metricMode === 'sections' ? ('Sections (Track ' + selectedTrack + ')') : ('Enrollment (Track ' + selectedTrack + ')'),
+                        data: singleData,
+                        borderColor: colors[selectedTrack] || '#C28E0E',
+                        backgroundColor: 'transparent',
+                        tension: 0.1
+                    }]
+                };
+            }
+        }
+
+        // Create chart
+        const ctx = chartRef.current.getContext('2d');
+        chartInstanceRef.current = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false,
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: metricMode === 'sections' ? 'Sections Offered Over Time' : 'Total Enrollment Over Time',
+                        font: { size: 16, weight: 'bold' },
+                        color: '#000000'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => {
+            if (chartInstanceRef.current) {
+                chartInstanceRef.current.destroy();
+            }
+        };
+    }, [allTermHistory, selectedTrack, xAxisMode, metricMode, availableTracks]);
 
     return h('div', { className: 'modal-overlay', onClick: onClose },
         h('div', { className: 'modal', onClick: (e) => e.stopPropagation() },
@@ -996,51 +1155,126 @@ function CourseModal({ course, enrollmentsData, onClose }) {
             ),
 
             h('div', { className: 'modal-body' },
-                h('div', { className: 'info-grid', style: { gridTemplateColumns: course.avgEnrollment > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)' } },
-                    h('div', { className: 'info-item' },
-                        h('div', { className: 'info-label' }, 'Degree Plans Using This'),
-                        h('div', { className: 'info-value' }, course.usageCount)
-                    ),
-                    h('div', { className: 'info-item' },
-                        h('div', { className: 'info-label' }, 'Subject'),
-                        h('div', { className: 'info-value' }, course.subject)
-                    ),
+                h('div', { className: 'info-grid', style: { gridTemplateColumns: 'repeat(4, 1fr)' } },
                     h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Programs'),
-                        h('div', { className: 'info-value' }, course.programs.length)
+                        h('div', { className: 'info-value' }, course.programs.length || '—')
                     ),
-                    course.avgEnrollment > 0 && h('div', { className: 'info-item' },
+                    h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Avg Enrollment'),
-                        h('div', { className: 'info-value' }, course.avgEnrollment)
+                        h('div', { className: 'info-value' }, course.avgEnrollment > 0 ? course.avgEnrollment : '—')
                     ),
-                    course.timesOffered > 0 && h('div', { className: 'info-item' },
+                    h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Times Offered'),
-                        h('div', { className: 'info-value' }, course.timesOffered)
+                        h('div', { className: 'info-value' }, course.timesOffered > 0 ? course.timesOffered : '—')
                     ),
-                    course.avgSectionsPerTerm > 0 && h('div', { className: 'info-item' },
+                    h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Avg Sections/Term'),
-                        h('div', { className: 'info-value' }, course.avgSectionsPerTerm)
-                    ),
-                    course.sectionVariation > 0 && h('div', { className: 'info-item' },
-                        h('div', { className: 'info-label' }, 'Variation'),
-                        h('div', { className: 'info-value' }, course.sectionVariation + '%')
-                    ),
-                    course.sectionTrend !== '—' && h('div', { className: 'info-item' },
-                        h('div', { className: 'info-label' }, 'Trend'),
-                        h('div', { className: 'info-value', style: { fontSize: '24px' } }, course.sectionTrend)
+                        h('div', { className: 'info-value' }, course.avgSectionsPerTerm > 0 ? course.avgSectionsPerTerm : '—')
                     )
                 ),
 
-                course.deptChair && h('div', { className: 'course-info-section' },
-                    h('div', { className: 'course-info-row' },
-                        h('div', { className: 'course-info-label' }, 'Department Chair'),
-                        h('div', { className: 'course-info-value' }, course.deptChair)
+                allTermHistory.length > 0 && h('div', { className: 'modal-section' },
+                    h('h3', null, 'Section Trends Over Time'),
+
+                    h('div', { className: 'chart-controls' },
+                        h('div', { className: 'chart-control-group' },
+                            h('label', null, 'Display Mode:'),
+                            h('div', { className: 'radio-group' },
+                                h('label', { className: 'radio-label' },
+                                    h('input', {
+                                        type: 'radio',
+                                        name: 'xAxisMode',
+                                        value: 'full',
+                                        checked: xAxisMode === 'full',
+                                        onChange: (e) => setXAxisMode(e.target.value)
+                                    }),
+                                    ' By Term Code (2401A, 2401B...)'
+                                ),
+                                h('label', { className: 'radio-label' },
+                                    h('input', {
+                                        type: 'radio',
+                                        name: 'xAxisMode',
+                                        value: 'base',
+                                        checked: xAxisMode === 'base',
+                                        onChange: (e) => setXAxisMode(e.target.value)
+                                    }),
+                                    ' By Base Term (2401, 2402...)'
+                                )
+                            )
+                        ),
+
+                        xAxisMode === 'full' && h('div', { className: 'chart-control-group' },
+                            h('label', { htmlFor: 'track-select' }, 'Track:'),
+                            h('select', {
+                                id: 'track-select',
+                                value: selectedTrack,
+                                onChange: (e) => setSelectedTrack(e.target.value),
+                                className: 'track-dropdown'
+                            },
+                                h('option', { value: 'all' }, 'All Tracks'),
+                                availableTracks.map(track =>
+                                    h('option', { key: track, value: track }, 'Track ' + track)
+                                )
+                            )
+                        ),
+
+                        xAxisMode === 'base' && h('div', { className: 'chart-control-group' },
+                            h('label', { htmlFor: 'track-select-base' }, 'Track:'),
+                            h('select', {
+                                id: 'track-select-base',
+                                value: selectedTrack,
+                                onChange: (e) => setSelectedTrack(e.target.value),
+                                className: 'track-dropdown'
+                            },
+                                h('option', { value: 'all' }, 'All Tracks'),
+                                availableTracks.map(track =>
+                                    h('option', { key: track, value: track }, 'Track ' + track)
+                                )
+                            )
+                        ),
+
+                        h('div', { className: 'chart-control-group' },
+                            h('label', null, 'Metric:'),
+                            h('div', { className: 'radio-group' },
+                                h('label', { className: 'radio-label' },
+                                    h('input', {
+                                        type: 'radio',
+                                        name: 'metricMode',
+                                        value: 'sections',
+                                        checked: metricMode === 'sections',
+                                        onChange: (e) => setMetricMode(e.target.value)
+                                    }),
+                                    ' Sections'
+                                ),
+                                h('label', { className: 'radio-label' },
+                                    h('input', {
+                                        type: 'radio',
+                                        name: 'metricMode',
+                                        value: 'enrollment',
+                                        checked: metricMode === 'enrollment',
+                                        onChange: (e) => setMetricMode(e.target.value)
+                                    }),
+                                    ' Enrollment'
+                                )
+                            )
+                        )
+                    ),
+
+                    h('div', { className: 'chart-container' },
+                        h('canvas', { ref: chartRef })
                     )
                 ),
 
                 termHistory.length > 0 && h('div', { className: 'modal-section' },
-                    h('h3', null, 'Section History by Track (Last 5 Terms per Track)'),
-                    h('div', { className: 'term-history-list' },
+                    h('div', { className: 'section-header' },
+                        h('h3', null, 'Section History by Track (Last 5 Terms per Track)'),
+                        h('button', {
+                            className: 'collapse-toggle',
+                            onClick: () => setHistoryCollapsed(!historyCollapsed)
+                        }, historyCollapsed ? 'Show' : 'Hide')
+                    ),
+                    !historyCollapsed && h('div', { className: 'term-history-list' },
                         termHistory.map((term, index) =>
                             h('div', { key: index, className: 'term-history-item' },
                                 h('div', { className: 'term-code' }, term.termCode),
@@ -1060,7 +1294,9 @@ function CourseModal({ course, enrollmentsData, onClose }) {
                         course.programs.map((program, index) =>
                             h('div', { key: index, className: 'program-item' },
                                 h('div', { className: 'program-name' }, program.name),
-                                h('span', { className: 'program-category' }, program.category)
+                                h('span', {
+                                    className: 'program-category ' + getCategoryClass(program.category)
+                                }, program.category)
                             )
                         )
                     )

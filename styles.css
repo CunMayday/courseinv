@@ -1,4 +1,9 @@
 /*
+Version 1.16.0 - Matched program tag colors in detail modal to main list.
+Version 1.15.0 - Kept four info cards in a single row and made Section History collapsible by default.
+Version 1.14.0 - Simplified detail modal info cards (removed subject, degree plan count, variation, trend, and department chair row).
+Version 1.13.0 - Unified track selection via dropdown for both term code and base term charts (defaults to All Tracks).
+Version 1.12.0 - Added interactive Chart.js line chart to detail modal showing section trends over time with track filtering and dual metric display.
 Version 1.11.0 - Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).
 Version 1.10.0 - Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).
 Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
@@ -489,13 +494,12 @@ td.center {
 
 .program-category {
     display: inline-block;
-    background: #CEB888;
-    color: #000000;
-    padding: 2px 8px;
+    padding: 3px 8px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     margin-top: 4px;
+    text-transform: capitalize;
 }
 
 .info-grid {
@@ -691,7 +695,8 @@ td.center {
     gap: 4px;
 }
 
-.category-tag {
+.category-tag,
+.program-category {
     display: inline-block;
     padding: 3px 8px;
     border-radius: 4px;
@@ -699,37 +704,44 @@ td.center {
     font-weight: 500;
 }
 
-.category-tag.core {
+.category-tag.core,
+.program-category.core {
     background: #000000;
     color: white;
 }
 
-.category-tag.major {
+.category-tag.major,
+.program-category.major {
     background: #C28E0E;
     color: white;
 }
 
-.category-tag.requirements {
+.category-tag.requirements,
+.program-category.requirements {
     background: #373A36;
     color: white;
 }
 
-.category-tag.concentration {
+.category-tag.concentration,
+.program-category.concentration {
     background: #CEB888;
     color: #000000;
 }
 
-.category-tag.elective {
+.category-tag.elective,
+.program-category.elective {
     background: #e5e5e5;
     color: #373A36;
 }
 
-.category-tag.micro-credential {
+.category-tag.micro-credential,
+.program-category.micro-credential {
     background: #9D968D;
     color: white;
 }
 
-.category-tag.other {
+.category-tag.other,
+.program-category.other {
     background: #f0f0f0;
     color: #373A36;
 }
@@ -843,6 +855,27 @@ td.center {
     color: white;
 }
 
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.collapse-toggle {
+    background: #C28E0E;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.collapse-toggle:hover {
+    background: #b07d0c;
+}
+
 .term-history-list {
     display: flex;
     flex-direction: column;
@@ -883,6 +916,75 @@ td.center {
 
 .term-enrollment {
     color: #373A36;
+}
+
+.chart-controls {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.chart-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chart-control-group label {
+    font-weight: 600;
+    color: #373A36;
+    font-size: 14px;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    color: #373A36;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    cursor: pointer;
+}
+
+.track-dropdown {
+    padding: 8px 12px;
+    border: 1px solid #9D968D;
+    border-radius: 4px;
+    background: white;
+    color: #373A36;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+.track-dropdown:focus {
+    outline: none;
+    border-color: #C28E0E;
+    box-shadow: 0 0 0 2px rgba(194, 142, 14, 0.1);
+}
+
+.chart-container {
+    width: 100%;
+    height: 400px;
+    margin-top: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
 }
 
 @media (max-width: 768px) {
