@@ -1,4 +1,5 @@
 /*
+Version 1.10.0 - Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).
 Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
 Version 1.8.0 - Added checkbox filter to hide courses that have never been offered.
 Version 1.7.0 - Fixed stale data bug on validation failure, fixed duplicate elective labels, updated documentation.
@@ -320,19 +321,28 @@ function CourseInventoryApp() {
                 enrollmentsData.forEach(enrollment => {
                     const courseCode = (enrollment['Course Number'] || '').trim();
                     const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
+                    const termName = (enrollment['Term Name'] || '').trim();
+                    const termCode = termName.substring(0, 5); // First 5 characters (e.g., "2401A")
 
-                    if (!courseCode) return;
+                    if (!courseCode || !termCode) return;
 
                     if (!enrollmentMap.has(courseCode)) {
                         enrollmentMap.set(courseCode, {
                             totalEnrollment: 0,
-                            timesOffered: 0
+                            timesOffered: 0,
+                            termData: new Map() // Track sections per term
                         });
                     }
 
                     const stats = enrollmentMap.get(courseCode);
                     stats.totalEnrollment += enrollmentCount;
                     stats.timesOffered += 1;
+
+                    // Track sections per term (each row is a section)
+                    if (!stats.termData.has(termCode)) {
+                        stats.termData.set(termCode, 0);
+                    }
+                    stats.termData.set(termCode, stats.termData.get(termCode) + 1);
                 });
             }
 
@@ -398,6 +408,49 @@ function CourseInventoryApp() {
                     ? Math.round(enrollmentStats.totalEnrollment / enrollmentStats.timesOffered)
                     : 0;
 
+                // Calculate new metrics: avgSectionsPerTerm, sectionVariation, sectionTrend
+                let avgSectionsPerTerm = 0;
+                let sectionVariation = 0;
+                let sectionTrend = '—';
+
+                if (enrollmentStats.termData && enrollmentStats.termData.size > 0) {
+                    const sectionsPerTerm = Array.from(enrollmentStats.termData.values());
+                    const numTerms = sectionsPerTerm.length;
+
+                    // Average sections per term
+                    const totalSections = sectionsPerTerm.reduce((sum, count) => sum + count, 0);
+                    avgSectionsPerTerm = numTerms > 0 ? (totalSections / numTerms).toFixed(1) : 0;
+
+                    // Coefficient of variation (std dev / mean * 100)
+                    if (numTerms > 1 && avgSectionsPerTerm > 0) {
+                        const mean = totalSections / numTerms;
+                        const variance = sectionsPerTerm.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / numTerms;
+                        const stdDev = Math.sqrt(variance);
+                        sectionVariation = ((stdDev / mean) * 100).toFixed(1);
+                    }
+
+                    // Trend: compare first half vs second half of terms
+                    if (numTerms >= 2) {
+                        const sortedTerms = Array.from(enrollmentStats.termData.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+                        const midpoint = Math.floor(sortedTerms.length / 2);
+                        const firstHalf = sortedTerms.slice(0, midpoint);
+                        const secondHalf = sortedTerms.slice(midpoint);
+
+                        const firstHalfAvg = firstHalf.reduce((sum, [_, count]) => sum + count, 0) / firstHalf.length;
+                        const secondHalfAvg = secondHalf.reduce((sum, [_, count]) => sum + count, 0) / secondHalf.length;
+
+                        const change = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
+
+                        if (change > 10) {
+                            sectionTrend = '↑';
+                        } else if (change < -10) {
+                            sectionTrend = '↓';
+                        } else {
+                            sectionTrend = '→';
+                        }
+                    }
+                }
+
                 return {
                     code: courseCode,
                     title: courseTitle,
@@ -407,7 +460,10 @@ function CourseInventoryApp() {
                     programs: programsArray,
                     types: sortedTypes,
                     avgEnrollment: avgEnrollment,
-                    timesOffered: enrollmentStats.timesOffered
+                    timesOffered: enrollmentStats.timesOffered,
+                    avgSectionsPerTerm: avgSectionsPerTerm,
+                    sectionVariation: sectionVariation,
+                    sectionTrend: sectionTrend
                 };
             });
 
@@ -462,6 +518,20 @@ function CourseInventoryApp() {
                 case 'timesOffered':
                     aVal = a.timesOffered;
                     bVal = b.timesOffered;
+                    break;
+                case 'avgSectionsPerTerm':
+                    aVal = parseFloat(a.avgSectionsPerTerm) || 0;
+                    bVal = parseFloat(b.avgSectionsPerTerm) || 0;
+                    break;
+                case 'sectionVariation':
+                    aVal = parseFloat(a.sectionVariation) || 0;
+                    bVal = parseFloat(b.sectionVariation) || 0;
+                    break;
+                case 'sectionTrend':
+                    // Sort by trend: ↑ = 2, → = 1, ↓ = 0
+                    const trendOrder = { '↑': 2, '→': 1, '↓': 0, '—': -1 };
+                    aVal = trendOrder[a.sectionTrend] || -1;
+                    bVal = trendOrder[b.sectionTrend] || -1;
                     break;
                 default:
                     aVal = a.code;
@@ -756,12 +826,24 @@ function CourseInventoryApp() {
                                 className: 'center ' + getSortClass('timesOffered'),
                                 onClick: () => handleSort('timesOffered')
                             }, 'TIMES OFFERED'),
+                            enrollmentsData.length > 0 && h('th', {
+                                className: 'center ' + getSortClass('avgSectionsPerTerm'),
+                                onClick: () => handleSort('avgSectionsPerTerm')
+                            }, 'AVG SECTIONS/TERM'),
+                            enrollmentsData.length > 0 && h('th', {
+                                className: 'center ' + getSortClass('sectionVariation'),
+                                onClick: () => handleSort('sectionVariation')
+                            }, 'VARIATION (%)'),
+                            enrollmentsData.length > 0 && h('th', {
+                                className: 'center ' + getSortClass('sectionTrend'),
+                                onClick: () => handleSort('sectionTrend')
+                            }, 'TREND'),
                             h('th', { className: 'center' }, 'PROGRAMS')
                         )
                     ),
                     h('tbody', null,
                         sortedCourses.length === 0 && h('tr', null,
-                            h('td', { colSpan: enrollmentsData.length > 0 ? 7 : 5, className: 'no-results' },
+                            h('td', { colSpan: enrollmentsData.length > 0 ? 10 : 5, className: 'no-results' },
                                 'No courses found matching your criteria'
                             )
                         ),
@@ -792,6 +874,22 @@ function CourseInventoryApp() {
                                         ? h('span', { className: 'usage-count' }, course.timesOffered)
                                         : h('span', { style: { color: '#9D968D' } }, '—')
                                 ),
+                                enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                    course.avgSectionsPerTerm > 0
+                                        ? h('span', { className: 'usage-count' }, course.avgSectionsPerTerm)
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                ),
+                                enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                    course.sectionVariation > 0
+                                        ? h('span', { className: 'usage-count' }, course.sectionVariation + '%')
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                ),
+                                enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                    h('span', {
+                                        className: 'usage-count',
+                                        style: { fontSize: '16px' }
+                                    }, course.sectionTrend)
+                                ),
                                 h('td', { className: 'center' },
                                     course.usageCount > 0
                                         ? h('button', {
@@ -813,8 +911,8 @@ function CourseInventoryApp() {
         }),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.9.0'),
-            ' — Refactored into separate CSS and JS files'
+            h('span', { className: 'version-number' }, 'Version 1.10.0'),
+            ' — Added section analysis columns (Avg Sections/Term, Variation, Trend)'
         )
     );
 }
@@ -831,7 +929,7 @@ function CourseModal({ course, onClose }) {
             ),
 
             h('div', { className: 'modal-body' },
-                h('div', { className: 'info-grid', style: { gridTemplateColumns: course.avgEnrollment > 0 ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)' } },
+                h('div', { className: 'info-grid', style: { gridTemplateColumns: course.avgEnrollment > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)' } },
                     h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Degree Plans Using This'),
                         h('div', { className: 'info-value' }, course.usageCount)
@@ -851,6 +949,18 @@ function CourseModal({ course, onClose }) {
                     course.timesOffered > 0 && h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Times Offered'),
                         h('div', { className: 'info-value' }, course.timesOffered)
+                    ),
+                    course.avgSectionsPerTerm > 0 && h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Avg Sections/Term'),
+                        h('div', { className: 'info-value' }, course.avgSectionsPerTerm)
+                    ),
+                    course.sectionVariation > 0 && h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Variation'),
+                        h('div', { className: 'info-value' }, course.sectionVariation + '%')
+                    ),
+                    course.sectionTrend !== '—' && h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Trend'),
+                        h('div', { className: 'info-value', style: { fontSize: '24px' } }, course.sectionTrend)
                     )
                 ),
 
