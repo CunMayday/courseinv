@@ -1,4 +1,5 @@
 /*
+Version 1.18.4 - Made View Details button available for all courses with appropriate messages for missing information.
 Version 1.18.3 - Replaced variation radio buttons with toggle switch for better UX.
 Version 1.18.2 - Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.
 Version 1.18.1 - Removed change log button/modal.
@@ -941,12 +942,10 @@ function CourseInventoryApp() {
                                     }, course.sectionTrend)
                                 ),
                                 h('td', { className: 'center' },
-                                    course.usageCount > 0
-                                        ? h('button', {
-                                            className: 'info-button',
-                                            onClick: () => setSelectedCourse(course)
-                                        }, 'View Details')
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
+                                    h('button', {
+                                        className: 'info-button',
+                                        onClick: () => setSelectedCourse(course)
+                                    }, 'View Details')
                                 )
                             )
                         )
@@ -962,8 +961,8 @@ function CourseInventoryApp() {
         }),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.18.3'),
-            ' — UX: Toggle switch for variation display'
+            h('span', { className: 'version-number' }, 'Version 1.18.4'),
+            ' — View Details button now available for all courses'
         )
     );
 }
@@ -1340,14 +1339,17 @@ function CourseModal({ course, enrollmentsData, onClose }) {
                 h('div', { className: 'modal-section' },
                     h('h3', null, 'Associated Programs'),
                     h('div', { className: 'program-list' },
-                        course.programs.map((program, index) =>
-                            h('div', { key: index, className: 'program-item' },
-                                h('div', { className: 'program-name' }, program.name),
-                                h('span', {
-                                    className: 'program-category ' + getCategoryClassModal(program.category)
-                                }, program.category)
+                        course.programs.length > 0
+                            ? course.programs.map((program, index) =>
+                                h('div', { key: index, className: 'program-item' },
+                                    h('div', { className: 'program-name' }, program.name),
+                                    h('span', {
+                                        className: 'program-category ' + getCategoryClassModal(program.category)
+                                    }, program.category)
+                                )
                             )
-                        )
+                            : h('div', { style: { color: '#9D968D', fontStyle: 'italic', padding: '10px 0' } },
+                                'This course is not associated with any degree programs.')
                     )
                 )
             )

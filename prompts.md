@@ -1,5 +1,46 @@
 # Project Task History
 
+## 28. Make View Details button available for all courses
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"i noticed that courses that do not belong to any degree plans do not get a view details button.  Every couse should get that button because there is other information shown there.  Just make sure that we show "not available" or appropriate message for missing information"
+
+**Summary:**
+Made the View Details button available for all courses regardless of degree plan association (Version 1.18.4):
+
+1. **Removed conditional rendering of View Details button** (script.js:943-948):
+   - Previously only showed button when `course.usageCount > 0`
+   - Now shows button for all courses
+   - Allows users to access enrollment data, section history, and other information even for courses not in degree plans
+
+2. **Added message for courses without programs** (script.js:1338-1353):
+   - When a course has no associated degree programs (`course.programs.length === 0`)
+   - Displays: "This course is not associated with any degree programs."
+   - Message styled in gray (#9D968D) with italic font
+   - Maintains consistent user experience
+
+3. **Updated version to 1.18.4** across:
+   - script.js - header and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**User Experience Improvement:**
+- All courses now have access to View Details modal
+- Even courses without degree plan associations can show:
+  - Average enrollment data
+  - Section trends over time (if enrollment data available)
+  - Times offered statistics
+  - Informative message when programs are not available
+
+**Files modified:**
+- script.js - Removed conditional, added no-programs message, updated version
+- index.html - Updated version header
+- styles.css - Updated version header
+- prompts.md - Added this task entry
+
+---
+
 ## 27. Replace variation radio buttons with toggle switch
 **Agent:** Claude (Sonnet 4.5)
 
