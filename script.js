@@ -1,4 +1,7 @@
 /*
+Version 1.24.2 - Fixed filter controls UI regression: restored original button classes, color coding, and structure.
+Version 1.24.1 - Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.
+Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.
 Version 1.23.0 - Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.
 Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
 Version 1.22.2 - Fixed ReferenceError by removing setUploadSectionExpanded call after data load.
@@ -87,13 +90,20 @@ function startApp() {
 const { useState, useEffect, useMemo } = React;
 const { createElement: h } = React;
 
-// Import utilities from global namespaces
+// Initialize components now that React is loaded
+window.initializeComponents();
+
+// Import utilities and components from global namespaces
 const { processCourseData } = window.CourseInventoryUtils;
 const { useCSVParser } = window.CourseInventoryHooks;
 const { TYPE_ORDER } = window.CourseInventoryConstants;
+const { UploadSection, StatsDashboard, FilterControls, CourseTable } = window.CourseInventoryComponents;
 
 // Version history - keep this in sync with comment block at top of file
 const VERSION_HISTORY = [
+    { version: '1.24.2', description: 'Fixed filter controls UI regression: restored original button classes, color coding, and structure.' },
+    { version: '1.24.1', description: 'Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.' },
+    { version: '1.24.0', description: 'Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.' },
     { version: '1.23.0', description: 'Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.' },
     { version: '1.22.3', description: 'Hide upload section after data is loaded; reload page to upload new files.' },
     { version: '1.22.2', description: 'Fixed ReferenceError by removing setUploadSectionExpanded call after data load.' },
@@ -371,228 +381,41 @@ function CourseInventoryApp() {
             )
         ),
 
-        !dataLoaded && h('div', {
-            className: 'upload-section expanded'
-        },
-            h('h2', { style: { marginBottom: '10px', color: '#000000' } }, 'Upload Data Files'),
-            h('p', { style: { color: '#9D968D', marginBottom: '20px', fontSize: '14px' } },
-                dataLoaded ? 'Upload new files to replace the current data.' : 'All three files are required to begin analysis.'
-            ),
-            h('div', { className: 'upload-grid' },
-                h('div', { className: 'upload-box' + (coursesFile ? ' uploaded' : '') },
-                    h('label', null,
-                        h('input', {
-                            type: 'file',
-                            accept: '.csv,.txt',
-                            onChange: (e) => setCoursesFile(e.target.files[0])
-                        }),
-                        h('div', { className: 'upload-icon' }, '📚'),
-                        h('div', { className: 'upload-text' }, 'Master Course List'),
-                        coursesFile && h('div', { className: 'upload-status' }, '✓ ' + coursesFile.name),
-                        !coursesFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
-                            'Click to upload CSV/TXT'
-                        )
-                    )
-                ),
-
-                h('div', { className: 'upload-box' + (degreePlansFile ? ' uploaded' : '') },
-                    h('label', null,
-                        h('input', {
-                            type: 'file',
-                            accept: '.csv,.txt',
-                            onChange: (e) => setDegreePlansFile(e.target.files[0])
-                        }),
-                        h('div', { className: 'upload-icon' }, '🎓'),
-                        h('div', { className: 'upload-text' }, 'Degree Plans'),
-                        degreePlansFile && h('div', { className: 'upload-status' }, '✓ ' + degreePlansFile.name),
-                        !degreePlansFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
-                            'Click to upload CSV/TXT'
-                        )
-                    )
-                ),
-
-                h('div', { className: 'upload-box' + (enrollmentsFile ? ' uploaded' : '') },
-                    h('label', null,
-                        h('input', {
-                            type: 'file',
-                            accept: '.csv,.txt',
-                            onChange: (e) => setEnrollmentsFile(e.target.files[0])
-                        }),
-                        h('div', { className: 'upload-icon' }, '📊'),
-                        h('div', { className: 'upload-text' }, 'Enrollment Figures'),
-                        enrollmentsFile && h('div', { className: 'upload-status' }, '✓ ' + enrollmentsFile.name),
-                        !enrollmentsFile && h('div', { style: { fontSize: '12px', color: '#9D968D', marginTop: '8px' } },
-                            'Click to upload CSV/TXT'
-                        )
-                    )
-                )
-            )
-        ),
+        !dataLoaded && h(UploadSection, {
+            coursesFile,
+            degreePlansFile,
+            enrollmentsFile,
+            onCoursesFileChange: setCoursesFile,
+            onDegreePlansFileChange: setDegreePlansFile,
+            onEnrollmentsFileChange: setEnrollmentsFile,
+            dataLoaded
+        }),
 
         dataLoaded && h('div', null,
-            h('div', { className: 'stats' },
-                h('div', { className: 'stat-card' },
-                    h('div', { className: 'stat-value' }, stats.totalCourses),
-                    h('div', { className: 'stat-label' }, 'Total Courses')
-                ),
-                h('div', { className: 'stat-card' },
-                    h('div', { className: 'stat-value' }, stats.usedCourses),
-                    h('div', { className: 'stat-label' }, 'Used in Programs')
-                ),
-                h('div', { className: 'stat-card' },
-                    h('div', { className: 'stat-value' }, stats.unusedCourses),
-                    h('div', { className: 'stat-label' }, 'Not used in any programs')
-                ),
-                h('div', { className: 'stat-card' },
-                    h('div', { className: 'stat-value' }, stats.neverOffered),
-                    h('div', { className: 'stat-label' }, 'Never offered')
-                )
-            ),
+            h(StatsDashboard, { stats }),
 
-            h('div', { className: 'controls' },
-                h('div', { className: 'control-group' },
-                    h('label', null, 'Subject Filter'),
-                    h('select', {
-                        value: selectedSubject,
-                        onChange: (e) => setSelectedSubject(e.target.value)
-                    },
-                        subjects.map(subject =>
-                            h('option', { key: subject, value: subject }, subject)
-                        )
-                    )
-                ),
+            h(FilterControls, {
+                selectedSubject,
+                subjects,
+                onSubjectChange: setSelectedSubject,
+                searchTerm,
+                onSearchChange: setSearchTerm,
+                allTypes,
+                selectedTypes,
+                onTypeToggle: handleTypeToggle,
+                onClearTypes: clearTypeFilters,
+                getCategoryClass
+            }),
 
-                    h('div', { className: 'control-group' },
-                        h('label', null, 'Search Courses'),
-                        h('input', {
-                            type: 'text',
-                            placeholder: 'Search by code or title...',
-                            value: searchTerm,
-                            onChange: (e) => setSearchTerm(e.target.value)
-                        })
-                    )
-            ),
-
-            allTypes.length > 0 && h('div', { className: 'controls' },
-                h('div', { style: { width: '100%' } },
-                    h('div', { className: 'type-filter-label' },
-                        h('span', null, 'Filter by Type'),
-                        selectedTypes.length > 0 && h('button', {
-                            className: 'clear-filters-btn',
-                            onClick: clearTypeFilters
-                        }, 'Clear filters')
-                    ),
-                    h('div', { className: 'type-filter-buttons' },
-                        allTypes.map(type =>
-                            h('button', {
-                                key: type,
-                                className: 'type-filter-btn ' + getCategoryClass(type) + (selectedTypes.includes(type) ? ' active' : ''),
-                                onClick: () => handleTypeToggle(type)
-                            }, type)
-                        )
-                    )
-                )
-            ),
-
-            h('div', { className: 'table-container' },
-                h('table', null,
-                    h('thead', null,
-                        h('tr', null,
-                            h('th', {
-                                className: getSortClass('code'),
-                                onClick: () => handleSort('code')
-                            }, 'CODE'),
-                            h('th', {
-                                className: getSortClass('title'),
-                                onClick: () => handleSort('title')
-                            }, 'TITLE'),
-                            h('th', null, 'TYPES'),
-                            h('th', {
-                                className: 'center ' + getSortClass('requiredCount'),
-                                onClick: () => handleSort('requiredCount'),
-                                title: 'Number of degree programs where this course is required (Core, Major, Requirements, or Concentration)'
-                            }, 'REQUIRED IN DEGREE PLANS'),
-                            h('th', {
-                                className: 'center ' + getSortClass('optionalCount'),
-                                onClick: () => handleSort('optionalCount'),
-                                title: 'Number of degree programs where this course is optional (Electives, Concentration Electives, Open Electives, Micro-credentials, or other types)'
-                            }, 'OPTIONAL IN DEGREE PLANS'),
-                            enrollmentsData.length > 0 && h('th', {
-                                className: 'center ' + getSortClass('avgEnrollment'),
-                                onClick: () => handleSort('avgEnrollment')
-                            }, 'AVG ENROLLMENT'),
-                            enrollmentsData.length > 0 && h('th', {
-                                className: 'center ' + getSortClass('timesOffered'),
-                                onClick: () => handleSort('timesOffered')
-                            }, 'TIMES OFFERED'),
-                            enrollmentsData.length > 0 && h('th', {
-                                className: 'center ' + getSortClass('avgSectionsPerTerm'),
-                                onClick: () => handleSort('avgSectionsPerTerm')
-                            }, 'AVG SECTIONS/TERM'),
-                            enrollmentsData.length > 0 && h('th', {
-                                className: 'center ' + getSortClass('sectionVariation'),
-                                onClick: () => handleSort('sectionVariation')
-                            }, 'VARIATION (STD DEV)'),
-                            h('th', { className: 'center' }, 'PROGRAMS')
-                        )
-                    ),
-                    h('tbody', null,
-                        sortedCourses.length === 0 && h('tr', null,
-                            h('td', { colSpan: enrollmentsData.length > 0 ? 10 : 6, className: 'no-results' },
-                                'No courses found matching your criteria'
-                            )
-                        ),
-                        sortedCourses.map(course =>
-                            h('tr', { key: course.code },
-                                h('td', { className: 'course-code' }, course.code),
-                                h('td', { className: 'course-title' }, course.title),
-                                h('td', null,
-                                    h('div', { className: 'category-tags' },
-                                        course.types.map((type, idx) =>
-                                            h('span', {
-                                                key: idx,
-                                                className: 'category-tag ' + getCategoryClass(type)
-                                            }, type)
-                                        )
-                                    )
-                                ),
-                                h('td', { className: 'center' },
-                                    h('span', { className: 'usage-count' }, course.requiredCount)
-                                ),
-                                h('td', { className: 'center' },
-                                    h('span', { className: 'usage-count' }, course.optionalCount)
-                                ),
-                                enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    course.avgEnrollment > 0
-                                        ? h('span', { className: 'usage-count' }, course.avgEnrollment)
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
-                                ),
-                                enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    course.timesOffered > 0
-                                        ? h('span', { className: 'usage-count' }, course.timesOffered)
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
-                                ),
-                                enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    course.avgSectionsPerTerm > 0
-                                        ? h('span', { className: 'usage-count' }, course.avgSectionsPerTerm)
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
-                                ),
-                                enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    course.sectionStdDev > 0
-                                        ? h('span', { className: 'usage-count' }, course.sectionStdDev)
-                                        : h('span', { style: { color: '#9D968D' } }, '—')
-                                ),
-                                h('td', { className: 'center' },
-                                    h('button', {
-                                        className: 'info-button',
-                                        onClick: () => setSelectedCourse(course)
-                                    }, 'View Details')
-                                )
-                            )
-                        )
-                    )
-                )
-            )
+            h(CourseTable, {
+                courses: sortedCourses,
+                sortField,
+                sortDirection,
+                onSort: handleSort,
+                onCourseClick: setSelectedCourse,
+                getCategoryClass,
+                enrollmentsData
+            })
         ),
 
         selectedCourse && h(CourseModal, {
@@ -623,8 +446,8 @@ function CourseInventoryApp() {
         ),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.23.0'),
-            ' — Phase 1 Refactoring: Extracted business logic and eliminated code duplication'
+            h('span', { className: 'version-number' }, 'Version 1.24.2'),
+            ' — UI regression fixes: restored original table headers, sort indicators, and filter button styling'
         )
     );
 }

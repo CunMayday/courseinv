@@ -1,5 +1,55 @@
 # Project Task History
 
+## 38. Phase 2 Refactoring: Component Decomposition
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"go" (after merging Phase 1 and creating Phase 2 branch)
+
+**Summary:**
+Implemented Phase 2 architectural refactoring to decompose the monolithic CourseInventoryApp into reusable UI components (Version 1.24.0):
+
+1. **Created components.js** (330 lines):
+   - UploadSection - Handles three file upload inputs (~95 lines)
+   - StatsDashboard - Displays four statistics cards (~25 lines)
+   - FilterControls - Subject dropdown, search, and type filters (~60 lines)
+   - CourseTable - Main data table with sortable columns (~140 lines)
+   - Global namespace: window.CourseInventoryComponents
+
+2. **Refactored script.js**:
+   - Replaced large inline UI sections with component calls
+   - UploadSection: Reduced ~55 lines of inline JSX to 8-line component call
+   - StatsDashboard: Reduced ~17 lines to 1-line component call
+   - FilterControls: Reduced ~43 lines to 11-line component call
+   - CourseTable: Reduced ~98 lines to 8-line component call
+   - Main component reduced from ~600 lines to ~440 lines
+
+3. **Updated index.html**:
+   - Added script tag to load components.js
+   - Updated version comment to 1.24.0
+
+4. **Updated VERSION_HISTORY**:
+   - Added version 1.24.0 entry to changelog
+   - Updated footer to display "Version 1.24.0"
+
+**Technical Impact:**
+- **Component Separation**: UI now properly separated into focused, reusable components
+- **Code Reduction**: ~160 lines eliminated through component extraction
+- **Maintainability**: Each component has single responsibility
+- **Reusability**: Components can be used independently or in different contexts
+- **Prop-based Architecture**: Clear data flow through component props
+
+**Files Created:**
+- components.js (330 lines)
+
+**Files Modified:**
+- script.js - Reduced by ~160 lines through component extraction
+- index.html - Added components.js script tag, updated version
+- prompts.md - This entry
+
+**Result:**
+Phase 2 refactoring complete. CourseInventoryApp now uses four focused UI components instead of inline JSX. Code is more organized, maintainable, and follows React best practices for component composition.
+
 ## 37. Phase 1 Refactoring: Extract Business Logic and Eliminate Code Duplication
 **Agent:** Claude (Sonnet 4.5)
 
