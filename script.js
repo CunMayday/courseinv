@@ -399,7 +399,8 @@ function CourseInventoryApp() {
                 allTypes,
                 selectedTypes,
                 onTypeToggle: handleTypeToggle,
-                onClearTypes: clearTypeFilters
+                onClearTypes: clearTypeFilters,
+                getCategoryClass
             }),
 
             h(CourseTable, {

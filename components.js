@@ -137,6 +137,7 @@ window.initializeComponents = function() {
      * @param {Array<string>} props.selectedTypes - Currently selected type filters
      * @param {Function} props.onTypeToggle - Callback when type filter is toggled
      * @param {Function} props.onClearTypes - Callback to clear all type filters
+     * @param {Function} props.getCategoryClass - Function to get CSS class for course type
      */
     function FilterControls({
         selectedSubject,
@@ -147,7 +148,8 @@ window.initializeComponents = function() {
         allTypes,
         selectedTypes,
         onTypeToggle,
-        onClearTypes
+        onClearTypes,
+        getCategoryClass
     }) {
         return h('div', { className: 'controls' },
             h('div', { className: 'control-group' },
@@ -173,19 +175,19 @@ window.initializeComponents = function() {
             ),
 
             h('div', { className: 'control-group type-filters' },
-                h('label', null, 'Filter by Type'),
-                h('div', { className: 'type-buttons' },
+                h('span', null, 'Filter by Type'),
+                selectedTypes.length > 0 && h('button', {
+                    className: 'clear-filters-btn',
+                    onClick: onClearTypes
+                }, 'Clear filters'),
+                h('div', { className: 'type-filter-buttons' },
                     allTypes.map(type =>
                         h('button', {
                             key: type,
-                            className: 'type-button ' + (selectedTypes.includes(type) ? 'active' : ''),
+                            className: 'type-filter-btn ' + getCategoryClass(type) + (selectedTypes.includes(type) ? ' active' : ''),
                             onClick: () => onTypeToggle(type)
                         }, type)
-                    ),
-                    selectedTypes.length > 0 && h('button', {
-                        className: 'type-button clear-button',
-                        onClick: onClearTypes
-                    }, '✕ Clear All')
+                    )
                 )
             )
         );
