@@ -1,4 +1,9 @@
 /*
+Version 1.22.0 - Removed 'Hide courses never offered' checkbox, added sorting instructions to header, removed upload toggle (always show upload section).
+Version 1.21.0 - Added dynamic change log modal accessible via info button in header; version history maintained in VERSION_HISTORY array.
+Version 1.20.0 - Removed variation display toggle (always use standard deviation) and removed trend column from main table.
+Version 1.19.1 - Removed 'Section History by Track' list from detail modal (chart provides same information).
+Version 1.19.0 - Split 'Degree Plans Using This' column into 'Required in Degree Plans' and 'Optional in Degree Plans' with hover tooltips explaining definitions; updated detail modal to show programs split by required/optional sections.
 Version 1.18.4 - Made View Details button available for all courses with appropriate messages for missing information.
 Version 1.18.3 - Replaced variation radio buttons with toggle switch for better UX.
 Version 1.18.2 - Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.
@@ -48,6 +53,16 @@ body {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.header-text {
+    flex: 1;
+}
+
 .header h1 {
     font-size: 28px;
     margin-bottom: 10px;
@@ -56,6 +71,36 @@ body {
 .header p {
     color: #CEB888;
     font-size: 14px;
+}
+
+.header-instruction {
+    color: #9D968D !important;
+    font-size: 12px !important;
+    margin-top: 8px !important;
+    font-style: italic;
+}
+
+.info-circle-btn {
+    background: transparent;
+    border: 2px solid #C28E0E;
+    color: #C28E0E;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.info-circle-btn:hover {
+    background: #C28E0E;
+    color: white;
+    transform: scale(1.1);
 }
 
 .upload-toggle {
@@ -460,6 +505,10 @@ td.center {
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.changelog-modal {
+    max-width: 800px;
 }
 
 .modal-header {
@@ -1062,6 +1111,32 @@ td.center {
     background: white;
     border-radius: 6px;
     border: 1px solid #e0e0e0;
+}
+
+.changelog-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.changelog-entry {
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    border-left: 4px solid #C28E0E;
+}
+
+.changelog-version {
+    font-weight: 600;
+    font-size: 16px;
+    color: #C28E0E;
+    margin-bottom: 8px;
+}
+
+.changelog-description {
+    color: #373A36;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 @media (max-width: 768px) {

@@ -1,5 +1,386 @@
 # Project Task History
 
+## 36. Hide upload section after data loads
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"upon loding the Upload data files section should be removed. we don't need to see that anymore, and if we need to change files, we can reload the page. so remove that panel once the files are processed."
+
+**Summary:**
+Made upload section hide automatically after data is successfully loaded (Version 1.22.3):
+
+1. **Added conditional rendering** (script.js:741):
+   - Changed `h('div', {` to `!dataLoaded && h('div', {`
+   - Upload section now only renders when `!dataLoaded` is true
+   - Once all three files are processed, upload section disappears
+   - Clean interface showing only the analysis results
+
+2. **User Workflow**:
+   - **Initial load**: Upload section visible with three file inputs
+   - **After upload**: Upload section automatically hidden
+   - **To upload new data**: Reload page (F5 or refresh button)
+   - Simpler, cleaner interface after data loads
+
+3. **Updated version to 1.22.3** across:
+   - script.js - header comment and VERSION_HISTORY array
+   - index.html - header comment
+
+**Technical Details:**
+- Uses existing `dataLoaded` variable: `coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0`
+- React conditional rendering with `&&` operator
+- No CSS changes needed
+- Upload section removed from DOM entirely when data loaded (not just hidden with CSS)
+
+**Result:**
+Cleaner interface after data loads. Upload section only visible when needed. Users reload page to start fresh with new files.
+
+## 35. Fixed second ReferenceError after data upload
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"I get a white page after I select the files. console says: react-dom.production.min.js:121 ReferenceError: setUploadSectionExpanded is not defined at script.js:271:13"
+
+**Summary:**
+Fixed another critical bug from Task 33 - leftover call to removed state setter (Version 1.22.2):
+
+1. **Root Cause**:
+   - In Task 33, removed `uploadSectionExpanded` state variable
+   - In Task 34, removed the state declaration line
+   - BUT forgot to remove the call to `setUploadSectionExpanded(false)` at line 271
+   - This line was in the useEffect that runs after all three data files are loaded
+   - Purpose was to auto-hide upload section after data loaded (no longer needed)
+   - Error occurred AFTER files were selected, causing white page
+
+2. **Fix Applied** (script.js:268-273):
+   - **Line 270-271**: Removed comment and `setUploadSectionExpanded(false);` call
+   - Simplified useEffect to just set processing state and clear errors
+   - Upload section now stays visible (expanded) at all times
+
+3. **Updated version to 1.22.2** across:
+   - script.js - header comment and VERSION_HISTORY array
+   - index.html - header comment
+
+**Result:**
+App now fully functional. Upload section appears on load, files can be selected and processed without errors, and upload section remains visible after data loads.
+
+## 34. Fixed ReferenceError preventing page load
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"something broke, the load files page isn't coming up on reload anymore. this is what's in the console:  14:32:17.278
+ReferenceError: hideNeverOffered is not defined
+    CourseInventoryApp file:///C:/Users/cuneyt/Documents/GitHub/courseinv/script.js:568"
+
+**Summary:**
+Fixed critical bug introduced in Task 33 that prevented the app from loading (Version 1.22.1):
+
+1. **Root Cause**:
+   - In Task 33, removed `hideNeverOffered` state variable declaration (line 122)
+   - But forgot to remove references to `hideNeverOffered` in filter logic
+   - This caused `ReferenceError: hideNeverOffered is not defined` at line 568
+   - Error prevented React app from rendering, showing only "Loading..." message
+
+2. **Fix Applied** (script.js):
+   - **Line 565**: Removed `const matchesNeverOffered = !hideNeverOffered || course.timesOffered > 0;`
+   - **Line 566**: Changed return statement from `return matchesSubject && matchesSearch && matchesTypes && matchesNeverOffered;` to `return matchesSubject && matchesSearch && matchesTypes;`
+   - **Line 568**: Removed `hideNeverOffered` from useMemo dependency array: `}, [processedCourses, selectedSubject, searchTerm, selectedTypes, hideNeverOffered]);` → `}, [processedCourses, selectedSubject, searchTerm, selectedTypes]);`
+   - **Line 121**: Removed unused `uploadSectionExpanded` state variable (leftover from Task 33)
+
+3. **Updated version to 1.22.1** across:
+   - script.js - header comment and VERSION_HISTORY array
+   - index.html - header comment
+
+**Result:**
+App now loads successfully. Upload section appears immediately on page load. All filtering works correctly without the "hide never offered" functionality.
+
+## 33. Simplify UI - remove checkbox and toggle, add sorting instructions
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"remove the Hide courses never offered option
+Add a line underneath the "Purdue University Global - Course Usage and Program Requirements" to explain to users that they can sort by each column by clicking on the column headers, clicking twice will change sort order.  Remove the "upload new data files" section. we can just reload the page to do that right?"
+
+**Summary:**
+Simplified the UI by removing unnecessary controls and adding user guidance (Version 1.22.0):
+
+1. **Removed 'Hide courses never offered' checkbox** (script.js):
+   - Deleted `hideNeverOffered` state variable
+   - Removed checkbox UI from controls section
+   - Removed filtering logic that excluded courses with `timesOffered === 0`
+   - Updated `filteredCourses` useMemo dependencies (removed hideNeverOffered)
+   - All courses now always visible regardless of offering history
+   - Cleaner, simpler controls section
+
+2. **Added sorting instructions to header** (script.js:712, styles.css:75-80):
+   - Added third line to header: "Click column headers to sort • Click again to reverse order"
+   - Styled as `.header-instruction` class
+   - Gray color (#9D968D), smaller font (12px), italic
+   - Provides immediate user guidance without cluttering interface
+   - Positioned in header below main subtitle
+
+3. **Removed upload toggle section** (script.js:739-741):
+   - Deleted upload toggle button/UI entirely
+   - Removed `uploadSectionExpanded` state logic
+   - Upload section now always visible (className: 'upload-section expanded')
+   - Removed conditional rendering logic for toggle
+   - Simpler approach: just reload page to start over with new data
+   - No need for "Upload New Data Files" / "Hide Upload Section" toggle
+
+4. **Updated CSS** (styles.css:75-80):
+   - Added `.header-instruction` class for sorting guidance
+   - Gray color for subtlety
+   - Italic font style
+   - Smaller font size (12px)
+   - Margin top for spacing
+
+5. **Updated version to 1.22.0** across:
+   - script.js - header comment, VERSION_HISTORY array, version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Rationale:**
+- "Hide courses never offered" removed: Users can use search/filter instead, and seeing all courses provides complete picture
+- Upload toggle removed: Simpler to just reload page for new data (standard web app behavior)
+- Sorting instructions added: Proactive user guidance reduces confusion
+- Overall cleaner, less cluttered interface
+
+**User Workflow for New Data:**
+- Previously: Click toggle, upload files
+- Now: Reload page (F5 or refresh button), upload files
+
+**Files modified:**
+- script.js - Removed hideNeverOffered state/logic, removed upload toggle, added sorting instruction, updated version
+- index.html - Updated version header
+- styles.css - Added header-instruction class, updated version header
+- prompts.md - Added this task entry
+
+---
+
+## 32. Add dynamic change log modal
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"There is a list of changes in the code listed as comments at the top of the file.  is it possible to add a buttion that upon clicking pulls that list as the change history when the user clicks it, but we don't hard code the changes?  Or is that not possible?"
+
+Follow-up: "yes, do it.  and add a i with a circle icon to the right of the title line (right justified) to trigger it."
+
+**Summary:**
+Added a dynamic change log modal accessible via an info button in the header (Version 1.21.0):
+
+1. **Created VERSION_HISTORY array** (script.js:85-102):
+   - JavaScript array containing all version entries
+   - Each entry has `version` and `description` properties
+   - Maintains last 16 versions (from 1.10.0 to 1.21.0)
+   - **Important**: Must be kept in sync with comment block at top of file
+   - Comment added: "// Version history - keep this in sync with comment block at top of file"
+
+2. **Added info button to header** (script.js:707-717):
+   - Circular info button with "ℹ" icon
+   - Positioned right-aligned in header using flexbox
+   - Button has Campus Gold (#C28E0E) border and text
+   - Hovers to filled Campus Gold background with white text
+   - Slight scale animation on hover (transform: scale(1.1))
+   - Title attribute: "View Change Log"
+
+3. **Added header layout structure** (script.js:707-718, styles.css:54-62):
+   - Created `.header-content` wrapper with flexbox
+   - `.header-text` contains title and subtitle (flex: 1)
+   - Info button aligned to the right
+   - Maintains existing header styling
+
+4. **Created change log modal** (script.js:990-1009):
+   - Uses existing modal overlay pattern
+   - Modal title: "Change Log"
+   - Lists all VERSION_HISTORY entries in reverse chronological order
+   - Each entry shows version number (gold) and description
+   - Click outside modal or × button to close
+   - Added `showChangeLog` state to control visibility
+
+5. **Added CSS styling** (styles.css):
+   - `.info-circle-btn`: 36px circular button, Campus Gold border, transparent background
+   - `.info-circle-btn:hover`: Filled Campus Gold background, white text, scale animation
+   - `.changelog-modal`: Max width 800px (wider than default 700px)
+   - `.changelog-list`: Vertical list with 15px gaps
+   - `.changelog-entry`: Card style with gold left border, light gray background
+   - `.changelog-version`: Bold gold text (16px)
+   - `.changelog-description`: Dark gray text (14px, line-height 1.5)
+
+6. **Updated version to 1.21.0** across:
+   - script.js - header comment, VERSION_HISTORY array, version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Maintenance Workflow:**
+When adding a new version:
+1. Update comment block at top of script.js (as usual)
+2. Add new entry to VERSION_HISTORY array (at the beginning)
+3. Update version footer text
+4. Both changes will appear automatically in the modal
+
+**Technical Details:**
+- Uses React's `map` to render version entries dynamically
+- No hard-coded version data in modal component
+- Single source of truth in VERSION_HISTORY array
+- Modal uses existing modal styles with custom `.changelog-modal` override
+- Click propagation stopped on modal content (e.stopPropagation)
+
+**Files modified:**
+- script.js - Added VERSION_HISTORY array, showChangeLog state, info button, modal, updated version
+- index.html - Updated version header
+- styles.css - Added header layout, info button, and changelog modal styles, updated version header
+- prompts.md - Added this task entry
+
+---
+
+## 31. Remove variation toggle and trend column
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"remove the variation display switch, we will always use standard deviation which is the default now. also remove the trend column."
+
+**Summary:**
+Simplified the main table by removing the variation display toggle and trend column (Version 1.20.0):
+
+1. **Removed variation display toggle** (script.js):
+   - Deleted `variationMode` state variable (was: 'percent' or 'stddev')
+   - Removed entire "Variation Display" toggle switch UI from controls section
+   - Toggle had labels "%" and "Std Dev" with switch between them
+   - Now always displays standard deviation (no user choice needed)
+
+2. **Updated variation column** (script.js):
+   - Changed header from dynamic `variationMode === 'percent' ? 'VARIATION (%)' : 'VARIATION (STD DEV)'` to fixed `'VARIATION (STD DEV)'`
+   - Simplified sorting logic to always use `sectionStdDev` (removed percentage option)
+   - Simplified table cell rendering to always display `course.sectionStdDev` (removed conditional logic)
+   - Removed `sectionVariationPercent` from display (still calculated in data for potential future use)
+
+3. **Removed trend column** (script.js):
+   - Deleted "TREND" column header from table
+   - Removed trend sorting case from sort switch statement
+   - Removed trend table cell with arrow symbols (↑ ↓ →)
+   - Trend symbols no longer displayed in main table
+   - `sectionTrend` still calculated in data (not removed from data structure)
+
+4. **Updated table colspan** (script.js):
+   - Changed from 11 to 10 columns for "no results" message
+   - Accounts for removal of one column (trend)
+
+5. **Updated version to 1.20.0** across:
+   - script.js - header comment and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Rationale:**
+- Standard deviation is more statistically meaningful than percentage variation
+- Simplifies UI by removing toggle
+- Trend column removed for cleaner table (trend can still be seen in chart)
+- Data still calculated in backend for potential future features
+
+**Files modified:**
+- script.js - Removed variationMode state, toggle UI, trend column, updated sorting/rendering logic, updated version
+- index.html - Updated version header
+- styles.css - Updated version header
+- prompts.md - Added this task entry
+
+---
+
+## 30. Remove Section History by Track list from detail modal
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"remove this section from the details modal: Section History by Track (Last 5 Terms per Track)  we have the chart so we donot need to list the courses anymore."
+
+**Summary:**
+Removed the "Section History by Track" collapsible list from the course detail modal (Version 1.19.1):
+
+1. **Removed termHistory calculation** (script.js):
+   - Deleted `termHistory` useMemo hook that calculated last 5 terms per track
+   - This data is now only visualized in the Chart.js chart
+   - Kept `allTermHistory` calculation for chart rendering
+
+2. **Removed Section History UI** (script.js):
+   - Deleted entire "Section History by Track (Last 5 Terms per Track)" section
+   - Removed collapsible section header with Show/Hide button
+   - Removed term history list rendering with term codes, sections, and enrollment
+   - Removed `historyCollapsed` state variable (no longer needed)
+
+3. **Updated version to 1.19.1** across:
+   - script.js - header comment and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Rationale:**
+- Chart provides better visualization of the same data
+- Eliminates redundant information
+- Cleaner, more focused modal UI
+- Existing CSS styles retained (may be used elsewhere or for future features)
+
+**Files modified:**
+- script.js - Removed termHistory calculation, Section History UI section, historyCollapsed state, updated version
+- index.html - Updated version header
+- styles.css - Updated version header
+- prompts.md - Added this task entry
+
+---
+
+## 29. Split degree plans column into Required and Optional
+**Agent:** Claude (Sonnet 4.5)
+
+**User Prompt:**
+"right now we have a column that says "deree pplans using this" which counts (check the code to make sure) all the instances where a course is listed for a degree plant.  We want to split that column into two: One will "Required in degree plans" and the other "Optional in Degree plans."  First column will count all the instances where the course is labeled as : requirements, concentration, major, and core, the optional column will count all other types.  Make it so that upon hoevering on the column headers, a small pop up comes up to explain the efinition of that column. do you have any questions?"
+
+**Summary:**
+Split the "Degree Plans Using This" column into two separate columns with hover tooltips (Version 1.19.0):
+
+1. **Added Required vs Optional counting logic** (script.js:476-498):
+   - Created `requiredCount` and `optionalCount` properties for each course
+   - **Required types**: Core, Major, Requirements, Concentration (but NOT Concentration Elective)
+   - **Optional types**: Electives, Concentration Electives, Open Electives, Micro-credentials, and other types
+   - Special handling for "Concentration Elective" - treated as optional despite containing "concentration"
+   - Each degree plan counted only once per course (no duplicates)
+
+2. **Updated table headers with tooltips** (script.js:894-903):
+   - **"REQUIRED IN DEGREE PLANS"** column with tooltip: "Number of degree programs where this course is required (Core, Major, Requirements, or Concentration)"
+   - **"OPTIONAL IN DEGREE PLANS"** column with tooltip: "Number of degree programs where this course is optional (Electives, Concentration Electives, Open Electives, Micro-credentials, or other types)"
+   - Removed old "DEGREE PLANS USING THIS" column
+   - Added sorting functionality for both new columns
+
+3. **Updated table body** (script.js:947-952):
+   - Display `course.requiredCount` in first new column
+   - Display `course.optionalCount` in second new column
+   - Updated colspan from 10 to 11 for "no results" message
+
+4. **Updated detail modal info grid** (script.js:1270-1278):
+   - Changed from 4 columns to 5 columns layout
+   - Split "Programs" into "Required In" and "Optional In" info cards
+   - Shows `course.requiredCount` and `course.optionalCount` at top of modal
+
+5. **Split program lists in modal** (script.js:1030-1052, 1407-1439):
+   - Created `requiredPrograms` and `optionalPrograms` useMemo hooks
+   - Filters programs based on same logic as main table
+   - Two separate sections: "Required in Degree Programs (X)" and "Optional in Degree Programs (X)"
+   - Each section shows count in heading
+   - Maintains existing category color coding for program tags
+
+6. **Updated version to 1.19.0** across:
+   - script.js - header comment and version footer
+   - index.html - header comment
+   - styles.css - header comment
+
+**Technical Details:**
+- Counting is based on unique degree programs (TranscriptDescrip)
+- Each program is counted only once per course
+- "Concentration Elective" explicitly handled as optional (edge case)
+- Hover tooltips use native HTML `title` attribute
+- No CSS changes needed (reused existing styles)
+
+**Files modified:**
+- script.js - Added required/optional counting, updated table headers/body, modified modal, updated version
+- index.html - Updated version header
+- styles.css - Updated version header
+- prompts.md - Added this task entry
+
+---
+
 ## 28. Make View Details button available for all courses
 **Agent:** Claude (Sonnet 4.5)
 

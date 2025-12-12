@@ -1,4 +1,12 @@
 /*
+Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
+Version 1.22.2 - Fixed ReferenceError by removing setUploadSectionExpanded call after data load.
+Version 1.22.1 - Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.
+Version 1.22.0 - Removed 'Hide courses never offered' checkbox, added sorting instructions to header, removed upload toggle (always show upload section).
+Version 1.21.0 - Added dynamic change log modal accessible via info button in header; version history maintained in VERSION_HISTORY array.
+Version 1.20.0 - Removed variation display toggle (always use standard deviation) and removed trend column from main table.
+Version 1.19.1 - Removed 'Section History by Track' list from detail modal (chart provides same information).
+Version 1.19.0 - Split 'Degree Plans Using This' column into 'Required in Degree Plans' and 'Optional in Degree Plans' with hover tooltips explaining definitions; updated detail modal to show programs split by required/optional sections.
 Version 1.18.4 - Made View Details button available for all courses with appropriate messages for missing information.
 Version 1.18.3 - Replaced variation radio buttons with toggle switch for better UX.
 Version 1.18.2 - Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.
@@ -78,6 +86,31 @@ function startApp() {
 const { useState, useEffect, useMemo } = React;
 const { createElement: h } = React;
 
+// Version history - keep this in sync with comment block at top of file
+const VERSION_HISTORY = [
+    { version: '1.22.3', description: 'Hide upload section after data is loaded; reload page to upload new files.' },
+    { version: '1.22.2', description: 'Fixed ReferenceError by removing setUploadSectionExpanded call after data load.' },
+    { version: '1.22.1', description: 'Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.' },
+    { version: '1.22.0', description: 'Removed \'Hide courses never offered\' checkbox, added sorting instructions to header, removed upload toggle (always show upload section).' },
+    { version: '1.21.0', description: 'Added dynamic change log modal accessible via info button in header; version history maintained in VERSION_HISTORY array.' },
+    { version: '1.20.0', description: 'Removed variation display toggle (always use standard deviation) and removed trend column from main table.' },
+    { version: '1.19.1', description: 'Removed \'Section History by Track\' list from detail modal (chart provides same information).' },
+    { version: '1.19.0', description: 'Split \'Degree Plans Using This\' column into \'Required in Degree Plans\' and \'Optional in Degree Plans\' with hover tooltips explaining definitions; updated detail modal to show programs split by required/optional sections.' },
+    { version: '1.18.4', description: 'Made View Details button available for all courses with appropriate messages for missing information.' },
+    { version: '1.18.3', description: 'Replaced variation radio buttons with toggle switch for better UX.' },
+    { version: '1.18.2', description: 'Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.' },
+    { version: '1.18.1', description: 'Removed change log button/modal.' },
+    { version: '1.17.0', description: 'Added variation display toggle (% vs std dev) in table.' },
+    { version: '1.16.1', description: 'Fixed modal program tag coloring by scoping category helper locally.' },
+    { version: '1.16.0', description: 'Matched program type colors in detail modal to main list category colors.' },
+    { version: '1.15.0', description: 'Kept four info cards in a single row and made Section History collapsible by default.' },
+    { version: '1.14.0', description: 'Simplified detail modal info cards (removed subject, degree plan count, variation, trend, and department chair row).' },
+    { version: '1.13.0', description: 'Unified track selection via dropdown for both term code and base term charts (defaults to All Tracks).' },
+    { version: '1.12.0', description: 'Added interactive Chart.js line chart to detail modal showing section trends over time with track filtering and dual metric display.' },
+    { version: '1.11.0', description: 'Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).' },
+    { version: '1.10.0', description: 'Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).' }
+];
+
 function CourseInventoryApp() {
     const [coursesFile, setCoursesFile] = useState(null);
     const [degreePlansFile, setDegreePlansFile] = useState(null);
@@ -91,12 +124,10 @@ function CourseInventoryApp() {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [sortField, setSortField] = useState('code');
     const [sortDirection, setSortDirection] = useState('asc');
-    const [uploadSectionExpanded, setUploadSectionExpanded] = useState(false);
     const [selectedTypes, setSelectedTypes] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [errors, setErrors] = useState([]);
-    const [hideNeverOffered, setHideNeverOffered] = useState(false);
-    const [variationMode, setVariationMode] = useState('stddev'); // 'percent' or 'stddev'
+    const [showChangeLog, setShowChangeLog] = useState(false);
 
     // Parse uploaded CSV files
     useEffect(() => {
@@ -240,8 +271,6 @@ function CourseInventoryApp() {
     // Process courses with degree plan counts
     useEffect(() => {
         if (coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0) {
-            // Auto-hide upload section once data is loaded
-            setUploadSectionExpanded(false);
             setIsProcessing(true);
 
             // Clear previous errors related to processing
@@ -473,12 +502,38 @@ function CourseInventoryApp() {
                     }
                 }
 
+                // Count required vs optional degree plans
+                const requiredTypes = ['core', 'major', 'requirements', 'concentration'];
+                let requiredCount = 0;
+                let optionalCount = 0;
+
+                programsArray.forEach(program => {
+                    const categoryLower = (program.category || '').toLowerCase();
+                    let isRequired = false;
+
+                    // Check if this program uses the course as a required type
+                    // Note: "Concentration Elective" contains "concentration" but is NOT required
+                    if (categoryLower.includes('concentration') && categoryLower.includes('elective')) {
+                        isRequired = false; // Concentration Elective is optional
+                    } else if (requiredTypes.some(type => categoryLower.includes(type))) {
+                        isRequired = true;
+                    }
+
+                    if (isRequired) {
+                        requiredCount++;
+                    } else {
+                        optionalCount++;
+                    }
+                });
+
                 return {
                     code: courseCode,
                     title: courseTitle,
                     deptChair: deptChair,
                     subject: courseCode.match(/^[A-Z]+/)?.[0] || '',
                     usageCount: usage.count,
+                    requiredCount: requiredCount,
+                    optionalCount: optionalCount,
                     programs: programsArray,
                     types: sortedTypes,
                     avgEnrollment: avgEnrollment,
@@ -510,10 +565,9 @@ function CourseInventoryApp() {
                 course.title.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesTypes = selectedTypes.length === 0 ||
                 selectedTypes.some(type => course.types.includes(type));
-            const matchesNeverOffered = !hideNeverOffered || course.timesOffered > 0;
-            return matchesSubject && matchesSearch && matchesTypes && matchesNeverOffered;
+            return matchesSubject && matchesSearch && matchesTypes;
         });
-    }, [processedCourses, selectedSubject, searchTerm, selectedTypes, hideNeverOffered]);
+    }, [processedCourses, selectedSubject, searchTerm, selectedTypes]);
 
     // Sort courses
     const sortedCourses = useMemo(() => {
@@ -530,9 +584,13 @@ function CourseInventoryApp() {
                     aVal = a.title;
                     bVal = b.title;
                     break;
-                case 'usage':
-                    aVal = a.usageCount;
-                    bVal = b.usageCount;
+                case 'requiredCount':
+                    aVal = a.requiredCount;
+                    bVal = b.requiredCount;
+                    break;
+                case 'optionalCount':
+                    aVal = a.optionalCount;
+                    bVal = b.optionalCount;
                     break;
                 case 'avgEnrollment':
                     aVal = a.avgEnrollment;
@@ -546,19 +604,9 @@ function CourseInventoryApp() {
                     aVal = parseFloat(a.avgSectionsPerTerm) || 0;
                     bVal = parseFloat(b.avgSectionsPerTerm) || 0;
                     break;
-            case 'sectionVariation':
-                aVal = variationMode === 'percent'
-                    ? (parseFloat(a.sectionVariationPercent) || 0)
-                    : (parseFloat(a.sectionStdDev) || 0);
-                bVal = variationMode === 'percent'
-                    ? (parseFloat(b.sectionVariationPercent) || 0)
-                    : (parseFloat(b.sectionStdDev) || 0);
-                break;
-                case 'sectionTrend':
-                    // Sort by trend: ↑ = 2, → = 1, ↓ = 0
-                    const trendOrder = { '↑': 2, '→': 1, '↓': 0, '—': -1 };
-                    aVal = trendOrder[a.sectionTrend] || -1;
-                    bVal = trendOrder[b.sectionTrend] || -1;
+                case 'sectionVariation':
+                    aVal = parseFloat(a.sectionStdDev) || 0;
+                    bVal = parseFloat(b.sectionStdDev) || 0;
                     break;
                 default:
                     aVal = a.code;
@@ -661,8 +709,18 @@ function CourseInventoryApp() {
         ),
 
         h('div', { className: 'header' },
-            h('h1', null, 'Course Inventory Analysis'),
-            h('p', null, 'Purdue University Global - Course Usage and Program Requirements')
+            h('div', { className: 'header-content' },
+                h('div', { className: 'header-text' },
+                    h('h1', null, 'Course Inventory Analysis'),
+                    h('p', null, 'Purdue University Global - Course Usage and Program Requirements'),
+                    h('p', { className: 'header-instruction' }, 'Click column headers to sort • Click again to reverse order')
+                ),
+                h('button', {
+                    className: 'info-circle-btn',
+                    onClick: () => setShowChangeLog(true),
+                    title: 'View Change Log'
+                }, 'ℹ')
+            )
         ),
 
         // Error/Warning banner
@@ -682,22 +740,8 @@ function CourseInventoryApp() {
             )
         ),
 
-        // Only show toggle after data is loaded
-        dataLoaded && h('div', {
-            className: 'upload-toggle',
-            onClick: () => setUploadSectionExpanded(!uploadSectionExpanded)
-        },
-            h('div', { className: 'upload-toggle-text' },
-                uploadSectionExpanded ? 'Hide Upload Section' : 'Upload New Data Files'
-            ),
-            h('div', {
-                className: 'upload-toggle-icon' + (uploadSectionExpanded ? ' expanded' : '')
-            }, '▼')
-        ),
-
-        // Show upload section when: no data loaded OR toggle is expanded
-        (!dataLoaded || uploadSectionExpanded) && h('div', {
-            className: 'upload-section' + ((!dataLoaded || uploadSectionExpanded) ? ' expanded' : ' collapsed')
+        !dataLoaded && h('div', {
+            className: 'upload-section expanded'
         },
             h('h2', { style: { marginBottom: '10px', color: '#000000' } }, 'Upload Data Files'),
             h('p', { style: { color: '#9D968D', marginBottom: '20px', fontSize: '14px' } },
@@ -795,36 +839,7 @@ function CourseInventoryApp() {
                             value: searchTerm,
                             onChange: (e) => setSearchTerm(e.target.value)
                         })
-                    ),
-
-                    enrollmentsData.length > 0 && h('div', { className: 'control-group' },
-                        h('label', null, 'Variation Display'),
-                        h('div', { className: 'toggle-switch-container' },
-                            h('span', {
-                                className: 'toggle-label' + (variationMode === 'percent' ? ' active' : '')
-                            }, '%'),
-                            h('label', { className: 'toggle-switch' },
-                                h('input', {
-                                    type: 'checkbox',
-                                    checked: variationMode === 'stddev',
-                                    onChange: () => setVariationMode(variationMode === 'percent' ? 'stddev' : 'percent')
-                                }),
-                                h('span', { className: 'toggle-slider' })
-                            ),
-                            h('span', {
-                                className: 'toggle-label' + (variationMode === 'stddev' ? ' active' : '')
-                            }, 'Std Dev')
-                        )
-                    ),
-
-                    h('div', { className: 'checkbox-group', onClick: () => setHideNeverOffered(!hideNeverOffered) },
-                        h('input', {
-                            type: 'checkbox',
-                            checked: hideNeverOffered,
-                            onChange: () => setHideNeverOffered(!hideNeverOffered)
-                    }),
-                    h('label', null, 'Hide courses never offered')
-                )
+                    )
             ),
 
             allTypes.length > 0 && h('div', { className: 'controls' },
@@ -862,9 +877,15 @@ function CourseInventoryApp() {
                             }, 'TITLE'),
                             h('th', null, 'TYPES'),
                             h('th', {
-                                className: 'center ' + getSortClass('usage'),
-                                onClick: () => handleSort('usage')
-                            }, 'DEGREE PLANS USING THIS'),
+                                className: 'center ' + getSortClass('requiredCount'),
+                                onClick: () => handleSort('requiredCount'),
+                                title: 'Number of degree programs where this course is required (Core, Major, Requirements, or Concentration)'
+                            }, 'REQUIRED IN DEGREE PLANS'),
+                            h('th', {
+                                className: 'center ' + getSortClass('optionalCount'),
+                                onClick: () => handleSort('optionalCount'),
+                                title: 'Number of degree programs where this course is optional (Electives, Concentration Electives, Open Electives, Micro-credentials, or other types)'
+                            }, 'OPTIONAL IN DEGREE PLANS'),
                             enrollmentsData.length > 0 && h('th', {
                                 className: 'center ' + getSortClass('avgEnrollment'),
                                 onClick: () => handleSort('avgEnrollment')
@@ -880,17 +901,13 @@ function CourseInventoryApp() {
                             enrollmentsData.length > 0 && h('th', {
                                 className: 'center ' + getSortClass('sectionVariation'),
                                 onClick: () => handleSort('sectionVariation')
-                            }, variationMode === 'percent' ? 'VARIATION (%)' : 'VARIATION (STD DEV)'),
-                            enrollmentsData.length > 0 && h('th', {
-                                className: 'center ' + getSortClass('sectionTrend'),
-                                onClick: () => handleSort('sectionTrend')
-                            }, 'TREND'),
+                            }, 'VARIATION (STD DEV)'),
                             h('th', { className: 'center' }, 'PROGRAMS')
                         )
                     ),
                     h('tbody', null,
                         sortedCourses.length === 0 && h('tr', null,
-                            h('td', { colSpan: enrollmentsData.length > 0 ? 10 : 5, className: 'no-results' },
+                            h('td', { colSpan: enrollmentsData.length > 0 ? 10 : 6, className: 'no-results' },
                                 'No courses found matching your criteria'
                             )
                         ),
@@ -909,7 +926,10 @@ function CourseInventoryApp() {
                                     )
                                 ),
                                 h('td', { className: 'center' },
-                                    h('span', { className: 'usage-count' }, course.usageCount)
+                                    h('span', { className: 'usage-count' }, course.requiredCount)
+                                ),
+                                h('td', { className: 'center' },
+                                    h('span', { className: 'usage-count' }, course.optionalCount)
                                 ),
                                 enrollmentsData.length > 0 && h('td', { className: 'center' },
                                     course.avgEnrollment > 0
@@ -927,19 +947,9 @@ function CourseInventoryApp() {
                                         : h('span', { style: { color: '#9D968D' } }, '—')
                                 ),
                                 enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    variationMode === 'percent'
-                                        ? (course.sectionVariationPercent > 0
-                                            ? h('span', { className: 'usage-count' }, course.sectionVariationPercent + '%')
-                                            : h('span', { style: { color: '#9D968D' } }, '—'))
-                                        : (course.sectionStdDev > 0
-                                            ? h('span', { className: 'usage-count' }, course.sectionStdDev)
-                                            : h('span', { style: { color: '#9D968D' } }, '—'))
-                                ),
-                                enrollmentsData.length > 0 && h('td', { className: 'center' },
-                                    h('span', {
-                                        className: 'usage-count',
-                                        style: { fontSize: '16px' }
-                                    }, course.sectionTrend)
+                                    course.sectionStdDev > 0
+                                        ? h('span', { className: 'usage-count' }, course.sectionStdDev)
+                                        : h('span', { style: { color: '#9D968D' } }, '—')
                                 ),
                                 h('td', { className: 'center' },
                                     h('button', {
@@ -960,9 +970,30 @@ function CourseInventoryApp() {
             onClose: () => setSelectedCourse(null)
         }),
 
+        showChangeLog && h('div', { className: 'modal-overlay', onClick: () => setShowChangeLog(false) },
+            h('div', { className: 'modal changelog-modal', onClick: (e) => e.stopPropagation() },
+                h('div', { className: 'modal-header' },
+                    h('div', { className: 'modal-title' },
+                        h('h2', null, 'Change Log')
+                    ),
+                    h('button', { className: 'close-button', onClick: () => setShowChangeLog(false) }, '×')
+                ),
+                h('div', { className: 'modal-body' },
+                    h('div', { className: 'changelog-list' },
+                        VERSION_HISTORY.map((entry, index) =>
+                            h('div', { key: index, className: 'changelog-entry' },
+                                h('div', { className: 'changelog-version' }, 'Version ' + entry.version),
+                                h('div', { className: 'changelog-description' }, entry.description)
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.18.4'),
-            ' — View Details button now available for all courses'
+            h('span', { className: 'version-number' }, 'Version 1.22.0'),
+            ' — Simplified UI, added sorting instructions'
         )
     );
 }
@@ -971,7 +1002,6 @@ function CourseModal({ course, enrollmentsData, onClose }) {
     const [selectedTrack, setSelectedTrack] = useState('all'); // 'all' or specific track
     const [xAxisMode, setXAxisMode] = useState('full'); // 'full' = term codes, 'base' = base terms
     const [metricMode, setMetricMode] = useState('sections'); // 'sections' or 'enrollment'
-    const [historyCollapsed, setHistoryCollapsed] = useState(true);
     const chartRef = React.useRef(null);
     const chartInstanceRef = React.useRef(null);
 
@@ -986,6 +1016,31 @@ function CourseModal({ course, enrollmentsData, onClose }) {
         if (t.includes('elective')) return 'elective';
         return 'other';
     };
+
+    // Separate programs into required and optional
+    const requiredPrograms = useMemo(() => {
+        const requiredTypes = ['core', 'major', 'requirements', 'concentration'];
+        return course.programs.filter(program => {
+            const categoryLower = (program.category || '').toLowerCase();
+            // Concentration Elective is NOT required
+            if (categoryLower.includes('concentration') && categoryLower.includes('elective')) {
+                return false;
+            }
+            return requiredTypes.some(type => categoryLower.includes(type));
+        });
+    }, [course.programs]);
+
+    const optionalPrograms = useMemo(() => {
+        const requiredTypes = ['core', 'major', 'requirements', 'concentration'];
+        return course.programs.filter(program => {
+            const categoryLower = (program.category || '').toLowerCase();
+            // Concentration Elective is optional
+            if (categoryLower.includes('concentration') && categoryLower.includes('elective')) {
+                return true;
+            }
+            return !requiredTypes.some(type => categoryLower.includes(type));
+        });
+    }, [course.programs]);
 
     // Calculate ALL term history (not limited to 5) for chart
     const allTermHistory = useMemo(() => {
@@ -1027,36 +1082,6 @@ function CourseModal({ course, enrollmentsData, onClose }) {
         return Array.from(tracks).sort();
     }, [allTermHistory]);
 
-    // Calculate term history for display list (limited to last 5 per track)
-    const termHistory = useMemo(() => {
-        if (allTermHistory.length === 0) return [];
-
-        const termsArray = [...allTermHistory];
-        termsArray.sort((a, b) => {
-            if (a.track !== b.track) {
-                return a.track.localeCompare(b.track);
-            }
-            return b.termCode.localeCompare(a.termCode);
-        });
-
-        const trackMap = new Map();
-        termsArray.forEach(term => {
-            if (!trackMap.has(term.track)) {
-                trackMap.set(term.track, []);
-            }
-            const trackTerms = trackMap.get(term.track);
-            if (trackTerms.length < 5) {
-                trackTerms.push(term);
-            }
-        });
-
-        const result = [];
-        Array.from(trackMap.keys()).sort().forEach(track => {
-            result.push(...trackMap.get(track));
-        });
-
-        return result;
-    }, [allTermHistory]);
 
     // Render chart with Chart.js
     useEffect(() => {
@@ -1203,10 +1228,14 @@ function CourseModal({ course, enrollmentsData, onClose }) {
             ),
 
             h('div', { className: 'modal-body' },
-                h('div', { className: 'info-grid', style: { gridTemplateColumns: 'repeat(4, 1fr)' } },
+                h('div', { className: 'info-grid', style: { gridTemplateColumns: 'repeat(5, 1fr)' } },
                     h('div', { className: 'info-item' },
-                        h('div', { className: 'info-label' }, 'Programs'),
-                        h('div', { className: 'info-value' }, course.programs.length || '—')
+                        h('div', { className: 'info-label' }, 'Required In'),
+                        h('div', { className: 'info-value' }, course.requiredCount || '—')
+                    ),
+                    h('div', { className: 'info-item' },
+                        h('div', { className: 'info-label' }, 'Optional In'),
+                        h('div', { className: 'info-value' }, course.optionalCount || '—')
                     ),
                     h('div', { className: 'info-item' },
                         h('div', { className: 'info-label' }, 'Avg Enrollment'),
@@ -1314,43 +1343,38 @@ function CourseModal({ course, enrollmentsData, onClose }) {
                     )
                 ),
 
-                termHistory.length > 0 && h('div', { className: 'modal-section' },
-                    h('div', { className: 'section-header' },
-                        h('h3', null, 'Section History by Track (Last 5 Terms per Track)'),
-                        h('button', {
-                            className: 'collapse-toggle',
-                            onClick: () => setHistoryCollapsed(!historyCollapsed)
-                        }, historyCollapsed ? 'Show' : 'Hide')
-                    ),
-                    !historyCollapsed && h('div', { className: 'term-history-list' },
-                        termHistory.map((term, index) =>
-                            h('div', { key: index, className: 'term-history-item' },
-                                h('div', { className: 'term-code' }, term.termCode),
-                                h('div', { className: 'term-stats' },
-                                    h('span', { className: 'term-sections' }, term.sections + ' section' + (term.sections !== 1 ? 's' : '')),
-                                    h('span', { className: 'term-separator' }, ' • '),
-                                    h('span', { className: 'term-enrollment' }, term.totalEnrollment + ' students')
-                                )
+                requiredPrograms.length > 0 && h('div', { className: 'modal-section' },
+                    h('h3', null, 'Required in Degree Programs (' + requiredPrograms.length + ')'),
+                    h('div', { className: 'program-list' },
+                        requiredPrograms.map((program, index) =>
+                            h('div', { key: index, className: 'program-item' },
+                                h('div', { className: 'program-name' }, program.name),
+                                h('span', {
+                                    className: 'program-category ' + getCategoryClassModal(program.category)
+                                }, program.category)
                             )
                         )
                     )
                 ),
 
-                h('div', { className: 'modal-section' },
-                    h('h3', null, 'Associated Programs'),
+                optionalPrograms.length > 0 && h('div', { className: 'modal-section' },
+                    h('h3', null, 'Optional in Degree Programs (' + optionalPrograms.length + ')'),
                     h('div', { className: 'program-list' },
-                        course.programs.length > 0
-                            ? course.programs.map((program, index) =>
-                                h('div', { key: index, className: 'program-item' },
-                                    h('div', { className: 'program-name' }, program.name),
-                                    h('span', {
-                                        className: 'program-category ' + getCategoryClassModal(program.category)
-                                    }, program.category)
-                                )
+                        optionalPrograms.map((program, index) =>
+                            h('div', { key: index, className: 'program-item' },
+                                h('div', { className: 'program-name' }, program.name),
+                                h('span', {
+                                    className: 'program-category ' + getCategoryClassModal(program.category)
+                                }, program.category)
                             )
-                            : h('div', { style: { color: '#9D968D', fontStyle: 'italic', padding: '10px 0' } },
-                                'This course is not associated with any degree programs.')
+                        )
                     )
+                ),
+
+                course.programs.length === 0 && h('div', { className: 'modal-section' },
+                    h('h3', null, 'Associated Programs'),
+                    h('div', { style: { color: '#9D968D', fontStyle: 'italic', padding: '10px 0' } },
+                        'This course is not associated with any degree programs.')
                 )
             )
         )
