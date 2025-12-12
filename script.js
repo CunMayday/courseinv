@@ -623,8 +623,8 @@ function CourseInventoryApp() {
         ),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.22.0'),
-            ' — Simplified UI, added sorting instructions'
+            h('span', { className: 'version-number' }, 'Version 1.23.0'),
+            ' — Phase 1 Refactoring: Extracted business logic and eliminated code duplication'
         )
     );
 }
