@@ -1,4 +1,5 @@
 /*
+Version 1.24.1 - Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.
 Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable).
 */
 
