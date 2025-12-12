@@ -201,6 +201,7 @@ window.initializeComponents = function() {
      * @param {Function} props.onSort - Callback when column header is clicked
      * @param {Function} props.onCourseClick - Callback when "View Details" is clicked
      * @param {Function} props.getCategoryClass - Function to get CSS class for course type
+     * @param {Array} props.enrollmentsData - Enrollment data to conditionally show columns
      */
     function CourseTable({
         courses,
@@ -208,7 +209,8 @@ window.initializeComponents = function() {
         sortDirection,
         onSort,
         onCourseClick,
-        getCategoryClass
+        getCategoryClass,
+        enrollmentsData
     }) {
         const getSortClass = (field) => {
             if (sortField !== field) return '';
@@ -220,89 +222,92 @@ window.initializeComponents = function() {
                 h('thead', null,
                     h('tr', null,
                         h('th', {
-                            className: 'sortable ' + getSortClass('code'),
+                            className: getSortClass('code'),
                             onClick: () => onSort('code')
-                        },
-                            'Course Code',
-                            h('span', { className: 'sort-indicator' })
-                        ),
+                        }, 'CODE'),
                         h('th', {
-                            className: 'sortable ' + getSortClass('title'),
+                            className: getSortClass('title'),
                             onClick: () => onSort('title')
-                        },
-                            'Course Title',
-                            h('span', { className: 'sort-indicator' })
-                        ),
-                        h('th', { className: 'type-column' }, 'Type'),
+                        }, 'TITLE'),
+                        h('th', null, 'TYPES'),
                         h('th', {
-                            className: 'sortable tooltip-header ' + getSortClass('requiredCount'),
-                            onClick: () => onSort('requiredCount')
-                        },
-                            'Required in Degree Plans',
-                            h('span', { className: 'sort-indicator' }),
-                            h('span', { className: 'tooltip' }, 'Programs where this course is Core, Major, Requirements, or Concentration (non-elective)')
-                        ),
+                            className: 'center ' + getSortClass('requiredCount'),
+                            onClick: () => onSort('requiredCount'),
+                            title: 'Number of degree programs where this course is required (Core, Major, Requirements, or Concentration)'
+                        }, 'REQUIRED IN DEGREE PLANS'),
                         h('th', {
-                            className: 'sortable tooltip-header ' + getSortClass('optionalCount'),
-                            onClick: () => onSort('optionalCount')
-                        },
-                            'Optional in Degree Plans',
-                            h('span', { className: 'sort-indicator' }),
-                            h('span', { className: 'tooltip' }, 'Programs where this course is an Elective, Open Elective, Concentration Elective, or Open requirement')
-                        ),
-                        h('th', {
-                            className: 'sortable ' + getSortClass('avgEnrollment'),
+                            className: 'center ' + getSortClass('optionalCount'),
+                            onClick: () => onSort('optionalCount'),
+                            title: 'Number of degree programs where this course is optional (Electives, Concentration Electives, Open Electives, Micro-credentials, or other types)'
+                        }, 'OPTIONAL IN DEGREE PLANS'),
+                        enrollmentsData.length > 0 && h('th', {
+                            className: 'center ' + getSortClass('avgEnrollment'),
                             onClick: () => onSort('avgEnrollment')
-                        },
-                            'Average Enrollment',
-                            h('span', { className: 'sort-indicator' })
-                        ),
-                        h('th', {
-                            className: 'sortable ' + getSortClass('timesOffered'),
+                        }, 'AVG ENROLLMENT'),
+                        enrollmentsData.length > 0 && h('th', {
+                            className: 'center ' + getSortClass('timesOffered'),
                             onClick: () => onSort('timesOffered')
-                        },
-                            'Times Offered',
-                            h('span', { className: 'sort-indicator' })
-                        ),
-                        h('th', {
-                            className: 'sortable ' + getSortClass('avgSectionsPerTerm'),
+                        }, 'TIMES OFFERED'),
+                        enrollmentsData.length > 0 && h('th', {
+                            className: 'center ' + getSortClass('avgSectionsPerTerm'),
                             onClick: () => onSort('avgSectionsPerTerm')
-                        },
-                            'Avg Sections/Term',
-                            h('span', { className: 'sort-indicator' })
-                        ),
-                        h('th', {
-                            className: 'sortable ' + getSortClass('sectionStdDev'),
-                            onClick: () => onSort('sectionStdDev')
-                        },
-                            'Variation (σ)',
-                            h('span', { className: 'sort-indicator' })
-                        ),
-                        h('th', null, 'Details')
+                        }, 'AVG SECTIONS/TERM'),
+                        enrollmentsData.length > 0 && h('th', {
+                            className: 'center ' + getSortClass('sectionVariation'),
+                            onClick: () => onSort('sectionVariation')
+                        }, 'VARIATION (STD DEV)'),
+                        h('th', { className: 'center' }, 'PROGRAMS')
                     )
                 ),
                 h('tbody', null,
+                    courses.length === 0 && h('tr', null,
+                        h('td', { colSpan: enrollmentsData.length > 0 ? 10 : 6, className: 'no-results' },
+                            'No courses found matching your criteria'
+                        )
+                    ),
                     courses.map(course =>
                         h('tr', { key: course.code },
-                            h('td', null, course.code),
-                            h('td', null, course.title),
+                            h('td', { className: 'course-code' }, course.code),
+                            h('td', { className: 'course-title' }, course.title),
                             h('td', null,
-                                course.types.map((type, idx) =>
-                                    h('span', {
-                                        key: idx,
-                                        className: 'category-tag ' + getCategoryClass(type)
-                                    }, type)
+                                h('div', { className: 'category-tags' },
+                                    course.types.map((type, idx) =>
+                                        h('span', {
+                                            key: idx,
+                                            className: 'category-tag ' + getCategoryClass(type)
+                                        }, type)
+                                    )
                                 )
                             ),
-                            h('td', { className: 'center' }, course.requiredCount),
-                            h('td', { className: 'center' }, course.optionalCount),
-                            h('td', { className: 'center' }, course.avgEnrollment || '—'),
-                            h('td', { className: 'center' }, course.timesOffered || '—'),
-                            h('td', { className: 'center' }, course.avgSectionsPerTerm || '—'),
-                            h('td', { className: 'center' }, course.sectionStdDev || '—'),
+                            h('td', { className: 'center' },
+                                h('span', { className: 'usage-count' }, course.requiredCount)
+                            ),
+                            h('td', { className: 'center' },
+                                h('span', { className: 'usage-count' }, course.optionalCount)
+                            ),
+                            enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                course.avgEnrollment > 0
+                                    ? h('span', { className: 'usage-count' }, course.avgEnrollment)
+                                    : h('span', { style: { color: '#9D968D' } }, '—')
+                            ),
+                            enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                course.timesOffered > 0
+                                    ? h('span', { className: 'usage-count' }, course.timesOffered)
+                                    : h('span', { style: { color: '#9D968D' } }, '—')
+                            ),
+                            enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                course.avgSectionsPerTerm > 0
+                                    ? h('span', { className: 'usage-count' }, course.avgSectionsPerTerm)
+                                    : h('span', { style: { color: '#9D968D' } }, '—')
+                            ),
+                            enrollmentsData.length > 0 && h('td', { className: 'center' },
+                                course.sectionStdDev > 0
+                                    ? h('span', { className: 'usage-count' }, course.sectionStdDev)
+                                    : h('span', { style: { color: '#9D968D' } }, '—')
+                            ),
                             h('td', { className: 'center' },
                                 h('button', {
-                                    className: 'view-details-btn',
+                                    className: 'info-button',
                                     onClick: () => onCourseClick(course)
                                 }, 'View Details')
                             )

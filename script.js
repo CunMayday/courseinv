@@ -408,7 +408,8 @@ function CourseInventoryApp() {
                 sortDirection,
                 onSort: handleSort,
                 onCourseClick: setSelectedCourse,
-                getCategoryClass
+                getCategoryClass,
+                enrollmentsData
             })
         ),
 
