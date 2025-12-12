@@ -1,4 +1,5 @@
 /*
+Version 1.23.0 - Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.
 Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
 Version 1.22.2 - Fixed ReferenceError by removing setUploadSectionExpanded call after data load.
 Version 1.22.1 - Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.
@@ -86,8 +87,14 @@ function startApp() {
 const { useState, useEffect, useMemo } = React;
 const { createElement: h } = React;
 
+// Import utilities from global namespaces
+const { processCourseData } = window.CourseInventoryUtils;
+const { useCSVParser } = window.CourseInventoryHooks;
+const { TYPE_ORDER } = window.CourseInventoryConstants;
+
 // Version history - keep this in sync with comment block at top of file
 const VERSION_HISTORY = [
+    { version: '1.23.0', description: 'Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.' },
     { version: '1.22.3', description: 'Hide upload section after data is loaded; reload page to upload new files.' },
     { version: '1.22.2', description: 'Fixed ReferenceError by removing setUploadSectionExpanded call after data load.' },
     { version: '1.22.1', description: 'Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.' },
@@ -129,421 +136,47 @@ function CourseInventoryApp() {
     const [errors, setErrors] = useState([]);
     const [showChangeLog, setShowChangeLog] = useState(false);
 
-    // Parse uploaded CSV files
-    useEffect(() => {
-        if (coursesFile) {
-            // Clear previous errors for this file type
-            setErrors(prev => prev.filter(e => !e.includes('Master Course List')));
-
-            // Check file size (warn if > 10MB)
-            if (coursesFile.size > 10 * 1024 * 1024) {
-                setErrors(prev => [...prev, 'Warning: Master Course List file is large (' + (coursesFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
-            }
-
-            setIsProcessing(true);
-            Papa.parse(coursesFile, {
-                header: true,
-                complete: (results) => {
-                    if (results.errors.length > 0) {
-                        console.error('CSV parsing errors:', results.errors);
-                        setErrors(prev => [...prev, 'Some rows in Master Course List had parsing errors. Check console for details.']);
-                    }
-
-                    // Validate required columns
-                    const firstRow = results.data[0] || {};
-                    const hasCourseNumber = 'Course Number' in firstRow || 'CourseCode' in firstRow;
-                    const hasCourseTitle = 'Course Title' in firstRow || 'CourseName' in firstRow || 'CourseTitle' in firstRow;
-
-                    if (!hasCourseNumber || !hasCourseTitle) {
-                        setErrors(prev => [...prev, 'Master Course List is missing required columns. Expected "Course Number" and "Course Title". Please check that you selected the correct files for each.']);
-                        setCoursesData([]);
-                        setIsProcessing(false);
-                        return;
-                    }
-
-                    const filtered = results.data.filter(row => {
-                        const courseCode = row['Course Number'] || row['CourseCode'];
-                        return courseCode && courseCode.trim();
-                    });
-                    setCoursesData(filtered);
-                    setIsProcessing(false);
-                },
-                error: (error) => {
-                    setErrors(prev => [...prev, 'Failed to parse Master Course List: ' + error.message]);
-                    setIsProcessing(false);
-                }
-            });
+    // Parse uploaded CSV files using custom hook
+    useCSVParser(
+        coursesFile,
+        ['Course Number', 'Course Title'],
+        'Master Course List',
+        setErrors,
+        setIsProcessing,
+        setCoursesData,
+        (row) => {
+            const courseCode = row['Course Number'] || row['CourseCode'];
+            return courseCode && courseCode.trim();
         }
-    }, [coursesFile]);
+    );
 
-    useEffect(() => {
-        if (degreePlansFile) {
-            // Clear previous errors for this file type
-            setErrors(prev => prev.filter(e => !e.includes('Degree Plans')));
+    useCSVParser(
+        degreePlansFile,
+        ['TranscriptDescrip', 'Requirement'],
+        'Degree Plans',
+        setErrors,
+        setIsProcessing,
+        setDegreePlansData,
+        (row) => row.TranscriptDescrip && row.TranscriptDescrip.trim()
+    );
 
-            // Check file size (warn if > 10MB)
-            if (degreePlansFile.size > 10 * 1024 * 1024) {
-                setErrors(prev => [...prev, 'Warning: Degree Plans file is large (' + (degreePlansFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
-            }
+    useCSVParser(
+        enrollmentsFile,
+        ['Course Number', 'Course Enrollment'],
+        'Enrollment Figures',
+        setErrors,
+        setIsProcessing,
+        setEnrollmentsData,
+        (row) => row['Course Number'] && row['Course Number'].trim() && row['Course Enrollment']
+    );
 
-            setIsProcessing(true);
-            Papa.parse(degreePlansFile, {
-                header: true,
-                complete: (results) => {
-                    if (results.errors.length > 0) {
-                        console.error('CSV parsing errors:', results.errors);
-                        setErrors(prev => [...prev, 'Some rows in Degree Plans had parsing errors. Check console for details.']);
-                    }
-
-                    // Validate required columns
-                    const firstRow = results.data[0] || {};
-                    const hasTranscriptDescrip = 'TranscriptDescrip' in firstRow;
-                    const hasRequirement = 'Requirement' in firstRow;
-                    const hasCategory = 'Category' in firstRow;
-
-                    if (!hasTranscriptDescrip || !hasRequirement) {
-                        setErrors(prev => [...prev, 'Degree Plans is missing required columns. Expected "TranscriptDescrip" and "Requirement". Please check that you selected the correct files for each.']);
-                        setDegreePlansData([]);
-                        setIsProcessing(false);
-                        return;
-                    }
-
-                    const filtered = results.data.filter(row =>
-                        row.TranscriptDescrip && row.TranscriptDescrip.trim()
-                    );
-                    setDegreePlansData(filtered);
-                    setIsProcessing(false);
-                },
-                error: (error) => {
-                    setErrors(prev => [...prev, 'Failed to parse Degree Plans: ' + error.message]);
-                    setIsProcessing(false);
-                }
-            });
-        }
-    }, [degreePlansFile]);
-
-    useEffect(() => {
-        if (enrollmentsFile) {
-            // Clear previous errors for this file type
-            setErrors(prev => prev.filter(e => !e.includes('Enrollment Figures')));
-
-            // Check file size (warn if > 10MB)
-            if (enrollmentsFile.size > 10 * 1024 * 1024) {
-                setErrors(prev => [...prev, 'Warning: Enrollment Figures file is large (' + (enrollmentsFile.size / (1024 * 1024)).toFixed(1) + 'MB). Processing may take a moment.']);
-            }
-
-            setIsProcessing(true);
-            Papa.parse(enrollmentsFile, {
-                header: true,
-                complete: (results) => {
-                    if (results.errors.length > 0) {
-                        console.error('CSV parsing errors:', results.errors);
-                        setErrors(prev => [...prev, 'Some rows in Enrollment Figures had parsing errors. Check console for details.']);
-                    }
-
-                    // Validate required columns
-                    const firstRow = results.data[0] || {};
-                    const hasCourseNumber = 'Course Number' in firstRow;
-                    const hasEnrollment = 'Course Enrollment' in firstRow;
-
-                    if (!hasCourseNumber || !hasEnrollment) {
-                        setErrors(prev => [...prev, 'Enrollment Figures is missing required columns. Expected "Course Number" and "Course Enrollment". Please check that you selected the correct files for each.']);
-                        setEnrollmentsData([]);
-                        setIsProcessing(false);
-                        return;
-                    }
-
-                    const filtered = results.data.filter(row =>
-                        row['Course Number'] && row['Course Number'].trim() &&
-                        row['Course Enrollment']
-                    );
-                    setEnrollmentsData(filtered);
-                    setIsProcessing(false);
-                },
-                error: (error) => {
-                    setErrors(prev => [...prev, 'Failed to parse Enrollment Figures: ' + error.message]);
-                    setIsProcessing(false);
-                }
-            });
-        }
-    }, [enrollmentsFile]);
-
-    // Process courses with degree plan counts
+    // Process courses with degree plan counts using utility function
     useEffect(() => {
         if (coursesData.length > 0 && degreePlansData.length > 0 && enrollmentsData.length > 0) {
             setIsProcessing(true);
+            setErrors([]); // Clear previous errors related to processing
 
-            // Clear previous errors related to processing
-            setErrors([]);
-
-            const courseUsageMap = new Map();
-
-            // Build usage map from degree plans
-            degreePlansData.forEach(plan => {
-                let courseCodes = [];
-                let categoryLabel = '';
-                const requirement = plan.Requirement || '';
-                const category = plan.Category || '';
-                const defaultCode = plan.DefaultCode || '';
-
-                // Check if requirement contains "elective" (any type of elective)
-                if (requirement.toLowerCase().includes('elective')) {
-                    // Use DefaultCode for electives
-                    if (defaultCode && defaultCode.trim()) {
-                        courseCodes.push(defaultCode.trim());
-                    }
-
-                    // Determine category label
-                    if (requirement.toLowerCase().includes('open elective')) {
-                        categoryLabel = 'Open Elective';
-                    } else if (category.toLowerCase() === 'concentration') {
-                        categoryLabel = 'Concentration Elective';
-                    } else if (category) {
-                        // Check if category already contains "elective" to avoid duplication
-                        if (category.toLowerCase().includes('elective')) {
-                            categoryLabel = category;
-                        } else {
-                            categoryLabel = category + ' Elective';
-                        }
-                    } else {
-                        categoryLabel = 'Elective';
-                    }
-                } else if (requirement.toLowerCase().includes(' or ')) {
-                    // Handle "OR" requirements - split and use all course codes
-                    const parts = requirement.split(/\s+or\s+/i);
-                    parts.forEach(part => {
-                        // Extract course code (e.g., "MT209 Small Business Management" -> "MT209")
-                        const match = part.trim().match(/^([A-Z]{2}\d{3})/);
-                        if (match) {
-                            courseCodes.push(match[1]);
-                        }
-                    });
-                    categoryLabel = category || 'N/A';
-                } else if (requirement.toLowerCase().includes('requirement')) {
-                    // For generic requirements like "Mathematics Requirement", use DefaultCode
-                    if (defaultCode && defaultCode.trim()) {
-                        courseCodes.push(defaultCode.trim());
-                    }
-                    categoryLabel = category || 'N/A';
-                } else {
-                    // Use requirement as-is (it should be a course code)
-                    if (requirement && requirement.trim()) {
-                        courseCodes.push(requirement.trim());
-                    }
-                    categoryLabel = category || 'N/A';
-                }
-
-                const programName = plan.TranscriptDescrip.trim();
-
-                // Process each course code
-                courseCodes.forEach(courseCode => {
-                    // Skip if no valid course code or if it's still a generic requirement
-                    if (!courseCode ||
-                        courseCode.toLowerCase().includes('requirement') ||
-                        courseCode.toLowerCase().includes('elective')) {
-                        return;
-                    }
-
-                    if (!courseUsageMap.has(courseCode)) {
-                        courseUsageMap.set(courseCode, {
-                            count: 0,
-                            programs: new Map()
-                        });
-                    }
-
-                    const usage = courseUsageMap.get(courseCode);
-
-                    // Store program with category
-                    if (!usage.programs.has(programName)) {
-                        usage.programs.set(programName, {
-                            category: categoryLabel
-                        });
-                    }
-
-                    usage.count = usage.programs.size;
-                });
-            });
-
-            // Calculate enrollment statistics
-            const enrollmentMap = new Map();
-            if (enrollmentsData.length > 0) {
-                enrollmentsData.forEach(enrollment => {
-                    const courseCode = (enrollment['Course Number'] || '').trim();
-                    const enrollmentCount = parseInt(enrollment['Course Enrollment']) || 0;
-                    const termName = (enrollment['Term Name'] || '').trim();
-                    const termCode = termName.substring(0, 5); // First 5 characters (e.g., "2401A")
-
-                    if (!courseCode || !termCode) return;
-
-                    if (!enrollmentMap.has(courseCode)) {
-                        enrollmentMap.set(courseCode, {
-                            totalEnrollment: 0,
-                            timesOffered: 0,
-                            termData: new Map() // Track sections per term
-                        });
-                    }
-
-                    const stats = enrollmentMap.get(courseCode);
-                    stats.totalEnrollment += enrollmentCount;
-                    stats.timesOffered += 1;
-
-                    // Track sections per term (each row is a section)
-                    if (!stats.termData.has(termCode)) {
-                        stats.termData.set(termCode, 0);
-                    }
-                    stats.termData.set(termCode, stats.termData.get(termCode) + 1);
-                });
-            }
-
-            // Merge with course master list
-            const processed = coursesData.map(course => {
-                const courseCode = (course['Course Number'] || course['CourseCode'] || '').trim();
-                const courseTitle = course['Course Title'] || course['CourseName'] || course['CourseTitle'] || '';
-                const deptChair = course['Department Chair'] || '';
-                const usage = courseUsageMap.get(courseCode) || { count: 0, programs: new Map() };
-                const enrollmentStats = enrollmentMap.get(courseCode) || { totalEnrollment: 0, timesOffered: 0 };
-
-                const programsArray = Array.from(usage.programs.entries()).map(([name, info]) => ({
-                    name: name,
-                    category: info.category
-                })).sort((a, b) => a.name.localeCompare(b.name));
-
-                // Extract unique category types for this course
-                const categoryTypes = new Set();
-                programsArray.forEach(p => {
-                    const cat = p.category.toLowerCase().trim();
-
-                    // Skip empty or N/A categories
-                    if (!cat || cat === 'n/a') {
-                        return;
-                    }
-
-                    // Check in order of specificity (most specific first)
-                    if (cat.includes('open') && cat.includes('elective')) {
-                        categoryTypes.add('Open Elective');
-                    } else if (cat.includes('concentration') && cat.includes('elective')) {
-                        categoryTypes.add('Concentration Elective');
-                    } else if (cat.includes('micro-credential') || cat.includes('micro credential')) {
-                        categoryTypes.add('Micro-credential');
-                    } else if (cat.includes('core')) {
-                        categoryTypes.add('Core');
-                    } else if (cat.includes('major')) {
-                        categoryTypes.add('Major');
-                    } else if (cat.includes('requirements')) {
-                        categoryTypes.add('Requirements');
-                    } else if (cat.includes('concentration')) {
-                        categoryTypes.add('Concentration');
-                    } else if (cat.includes('elective')) {
-                        categoryTypes.add('Elective');
-                    } else if (cat.includes('open')) {
-                        categoryTypes.add('Open');
-                    } else {
-                        // Capitalize first letter of unknown categories
-                        categoryTypes.add(p.category.charAt(0).toUpperCase() + p.category.slice(1));
-                    }
-                });
-
-                // Sort types according to defined order
-                const typeOrderLocal = ['Core', 'Major', 'Requirements', 'Concentration', 'Concentration Elective', 'Elective', 'Open Elective', 'Micro-credential'];
-                const sortedTypes = Array.from(categoryTypes).sort((a, b) => {
-                    const aIndex = typeOrderLocal.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
-                    const bIndex = typeOrderLocal.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
-                    const aOrder = aIndex === -1 ? 999 : aIndex;
-                    const bOrder = bIndex === -1 ? 999 : bIndex;
-                    return aOrder - bOrder;
-                });
-
-                const avgEnrollment = enrollmentStats.timesOffered > 0
-                    ? Math.round(enrollmentStats.totalEnrollment / enrollmentStats.timesOffered)
-                    : 0;
-
-                // Calculate new metrics: avgSectionsPerTerm, sectionVariation, sectionTrend
-                let avgSectionsPerTerm = 0;
-                let sectionVariationPercent = 0;
-                let sectionStdDev = 0;
-                let sectionTrend = '—';
-
-                if (enrollmentStats.termData && enrollmentStats.termData.size > 0) {
-                    const sectionsPerTerm = Array.from(enrollmentStats.termData.values());
-                    const numTerms = sectionsPerTerm.length;
-
-                    // Average sections per term
-                    const totalSections = sectionsPerTerm.reduce((sum, count) => sum + count, 0);
-                    avgSectionsPerTerm = numTerms > 0 ? (totalSections / numTerms).toFixed(1) : 0;
-
-                    // Coefficient of variation (std dev / mean * 100)
-                    if (numTerms > 1 && avgSectionsPerTerm > 0) {
-                        const mean = totalSections / numTerms;
-                        const variance = sectionsPerTerm.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / numTerms;
-                        const stdDev = Math.sqrt(variance);
-                        sectionStdDev = parseFloat(stdDev.toFixed(1));
-                        sectionVariationPercent = parseFloat(((stdDev / mean) * 100).toFixed(1));
-                    }
-
-                    // Trend: compare first half vs second half of terms
-                    if (numTerms >= 2) {
-                        const sortedTerms = Array.from(enrollmentStats.termData.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-                        const midpoint = Math.floor(sortedTerms.length / 2);
-                        const firstHalf = sortedTerms.slice(0, midpoint);
-                        const secondHalf = sortedTerms.slice(midpoint);
-
-                        const firstHalfAvg = firstHalf.reduce((sum, [_, count]) => sum + count, 0) / firstHalf.length;
-                        const secondHalfAvg = secondHalf.reduce((sum, [_, count]) => sum + count, 0) / secondHalf.length;
-
-                        const change = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
-
-                        if (change > 10) {
-                            sectionTrend = '↑';
-                        } else if (change < -10) {
-                            sectionTrend = '↓';
-                        } else {
-                            sectionTrend = '→';
-                        }
-                    }
-                }
-
-                // Count required vs optional degree plans
-                const requiredTypes = ['core', 'major', 'requirements', 'concentration'];
-                let requiredCount = 0;
-                let optionalCount = 0;
-
-                programsArray.forEach(program => {
-                    const categoryLower = (program.category || '').toLowerCase();
-                    let isRequired = false;
-
-                    // Check if this program uses the course as a required type
-                    // Note: "Concentration Elective" contains "concentration" but is NOT required
-                    if (categoryLower.includes('concentration') && categoryLower.includes('elective')) {
-                        isRequired = false; // Concentration Elective is optional
-                    } else if (requiredTypes.some(type => categoryLower.includes(type))) {
-                        isRequired = true;
-                    }
-
-                    if (isRequired) {
-                        requiredCount++;
-                    } else {
-                        optionalCount++;
-                    }
-                });
-
-                return {
-                    code: courseCode,
-                    title: courseTitle,
-                    deptChair: deptChair,
-                    subject: courseCode.match(/^[A-Z]+/)?.[0] || '',
-                    usageCount: usage.count,
-                    requiredCount: requiredCount,
-                    optionalCount: optionalCount,
-                    programs: programsArray,
-                    types: sortedTypes,
-                    avgEnrollment: avgEnrollment,
-                    timesOffered: enrollmentStats.timesOffered,
-                    avgSectionsPerTerm: avgSectionsPerTerm,
-                    sectionVariationPercent: sectionVariationPercent,
-                    sectionStdDev: sectionStdDev,
-                    sectionTrend: sectionTrend
-                };
-            });
+            const processed = processCourseData(coursesData, degreePlansData, enrollmentsData);
 
             setProcessedCourses(processed);
             setIsProcessing(false);
@@ -659,13 +292,11 @@ function CourseInventoryApp() {
         return 'other';
     };
 
-    // Define type order priority
-    const typeOrder = ['Core', 'Major', 'Requirements', 'Concentration', 'Concentration Elective', 'Elective', 'Open Elective', 'Micro-credential'];
-
+    // sortTypes function using imported TYPE_ORDER constant
     const sortTypes = (types) => {
         return types.sort((a, b) => {
-            const aIndex = typeOrder.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
-            const bIndex = typeOrder.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
+            const aIndex = TYPE_ORDER.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
+            const bIndex = TYPE_ORDER.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
             const aOrder = aIndex === -1 ? 999 : aIndex;
             const bOrder = bIndex === -1 ? 999 : bIndex;
             return aOrder - bOrder;

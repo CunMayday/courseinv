@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!--
+Version 1.23.0 - Refactored Phase 1: Extracted utility functions, custom hooks, and constants to separate files for better code organization and reusability.
 Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
 Version 1.22.2 - Fixed ReferenceError by removing setUploadSectionExpanded call after data load.
 Version 1.22.1 - Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.
@@ -38,6 +39,10 @@ Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, C
 </head>
 <body>
     <div id="root"><div style="padding:40px;text-align:center;font-family:sans-serif;color:#9D968D;">Loading...</div></div>
+    <!-- Load utility files before main script -->
+    <script src="constants.js"></script>
+    <script src="utils.js"></script>
+    <script src="hooks.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
