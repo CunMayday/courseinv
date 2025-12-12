@@ -1,4 +1,6 @@
 /*
+Version 1.24.2 - Fixed filter controls UI regression: restored original button classes, color coding, and structure.
+Version 1.24.1 - Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.
 Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.
 Version 1.23.0 - Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.
 Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
@@ -99,6 +101,8 @@ const { UploadSection, StatsDashboard, FilterControls, CourseTable } = window.Co
 
 // Version history - keep this in sync with comment block at top of file
 const VERSION_HISTORY = [
+    { version: '1.24.2', description: 'Fixed filter controls UI regression: restored original button classes, color coding, and structure.' },
+    { version: '1.24.1', description: 'Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.' },
     { version: '1.24.0', description: 'Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.' },
     { version: '1.23.0', description: 'Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.' },
     { version: '1.22.3', description: 'Hide upload section after data is loaded; reload page to upload new files.' },
@@ -442,8 +446,8 @@ function CourseInventoryApp() {
         ),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.24.0'),
-            ' — Phase 2 Refactoring: Component decomposition for better code organization'
+            h('span', { className: 'version-number' }, 'Version 1.24.2'),
+            ' — UI regression fixes: restored original table headers, sort indicators, and filter button styling'
         )
     );
 }
