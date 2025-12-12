@@ -2,8 +2,11 @@
 Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable).
 */
 
-// Create a global namespace for UI components
-window.CourseInventoryComponents = (function() {
+// Initialize components namespace (will be populated after React loads)
+window.CourseInventoryComponents = null;
+
+// Function to initialize components once React is available
+window.initializeComponents = function() {
     const { createElement: h } = React;
 
     /**
@@ -310,11 +313,11 @@ window.CourseInventoryComponents = (function() {
         );
     }
 
-    // Public API
-    return {
+    // Public API - store in global namespace
+    window.CourseInventoryComponents = {
         UploadSection,
         StatsDashboard,
         FilterControls,
         CourseTable
     };
-})();
+};

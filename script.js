@@ -88,6 +88,9 @@ function startApp() {
 const { useState, useEffect, useMemo } = React;
 const { createElement: h } = React;
 
+// Initialize components now that React is loaded
+window.initializeComponents();
+
 // Import utilities and components from global namespaces
 const { processCourseData } = window.CourseInventoryUtils;
 const { useCSVParser } = window.CourseInventoryHooks;
