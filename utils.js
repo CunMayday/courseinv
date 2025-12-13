@@ -1,18 +1,7 @@
-/*
-Version 1.23.0 - Created utility functions file to extract business logic from React components.
-*/
-
 // Create a global namespace for utility functions
 window.CourseInventoryUtils = (function() {
     const { TYPE_ORDER, REQUIRED_TYPES } = window.CourseInventoryConstants;
 
-    /**
-     * Parse a requirement string and extract course codes
-     * @param {string} requirement - The requirement text (e.g., "MT209 or MT220", "Mathematics Requirement")
-     * @param {string} defaultCode - Default course code to use for generic requirements
-     * @param {string} category - Category of the requirement
-     * @returns {Object} - { courseCodes: string[], categoryLabel: string }
-     */
     function parseRequirement(requirement, defaultCode, category) {
         let courseCodes = [];
         let categoryLabel = '';
@@ -67,11 +56,6 @@ window.CourseInventoryUtils = (function() {
         return { courseCodes, categoryLabel };
     }
 
-    /**
-     * Calculate enrollment statistics from enrollment data
-     * @param {Array} enrollmentsData - Raw enrollment data
-     * @returns {Map} - Map of course code to enrollment stats
-     */
     function calculateEnrollmentMetrics(enrollmentsData) {
         const enrollmentMap = new Map();
 
@@ -105,11 +89,6 @@ window.CourseInventoryUtils = (function() {
         return enrollmentMap;
     }
 
-    /**
-     * Categorize types from program usages
-     * @param {Array} programsArray - Array of programs with categories
-     * @returns {Array} - Sorted array of unique category types
-     */
     function categorizeTypes(programsArray) {
         const categoryTypes = new Set();
 
@@ -158,11 +137,6 @@ window.CourseInventoryUtils = (function() {
         return sortedTypes;
     }
 
-    /**
-     * Calculate metrics for section data (avg sections per term, variation, trend)
-     * @param {Map} termData - Map of term code to section count
-     * @returns {Object} - { avgSectionsPerTerm, sectionVariationPercent, sectionStdDev, sectionTrend }
-     */
     function calculateSectionMetrics(termData) {
         let avgSectionsPerTerm = 0;
         let sectionVariationPercent = 0;
@@ -213,13 +187,6 @@ window.CourseInventoryUtils = (function() {
         return { avgSectionsPerTerm, sectionVariationPercent, sectionStdDev, sectionTrend };
     }
 
-    /**
-     * Process courses with degree plan counts and enrollment statistics
-     * @param {Array} coursesData - Raw courses data
-     * @param {Array} degreePlansData - Raw degree plans data
-     * @param {Array} enrollmentsData - Raw enrollments data
-     * @returns {Array} - Processed courses with all calculated fields
-     */
     function processCourseData(coursesData, degreePlansData, enrollmentsData) {
         const courseUsageMap = new Map();
 

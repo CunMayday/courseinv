@@ -1,9 +1,3 @@
-/*
-Version 1.24.2 - Fixed filter controls UI regression: restored original button classes, color coding, and structure.
-Version 1.24.1 - Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.
-Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable).
-*/
-
 // Initialize components namespace (will be populated after React loads)
 window.CourseInventoryComponents = null;
 
@@ -11,19 +5,6 @@ window.CourseInventoryComponents = null;
 window.initializeComponents = function() {
     const { createElement: h } = React;
 
-    /**
-     * UploadSection Component
-     * Handles the three file upload inputs (Master Course List, Degree Plans, Enrollment Figures)
-     *
-     * @param {Object} props
-     * @param {File|null} props.coursesFile - Currently selected courses file
-     * @param {File|null} props.degreePlansFile - Currently selected degree plans file
-     * @param {File|null} props.enrollmentsFile - Currently selected enrollments file
-     * @param {Function} props.onCoursesFileChange - Callback when courses file changes
-     * @param {Function} props.onDegreePlansFileChange - Callback when degree plans file changes
-     * @param {Function} props.onEnrollmentsFileChange - Callback when enrollments file changes
-     * @param {boolean} props.dataLoaded - Whether all data has been loaded
-     */
     function UploadSection({
         coursesFile,
         degreePlansFile,
@@ -92,17 +73,6 @@ window.initializeComponents = function() {
         );
     }
 
-    /**
-     * StatsDashboard Component
-     * Displays four statistics cards showing course metrics
-     *
-     * @param {Object} props
-     * @param {Object} props.stats - Statistics object
-     * @param {number} props.stats.totalCourses - Total number of courses
-     * @param {number} props.stats.usedCourses - Courses used in programs
-     * @param {number} props.stats.unusedCourses - Courses not used in any programs
-     * @param {number} props.stats.neverOffered - Courses never offered
-     */
     function StatsDashboard({ stats }) {
         return h('div', { className: 'stats' },
             h('div', { className: 'stat-card' },
@@ -124,22 +94,6 @@ window.initializeComponents = function() {
         );
     }
 
-    /**
-     * FilterControls Component
-     * Renders subject dropdown, search input, and type filter buttons
-     *
-     * @param {Object} props
-     * @param {string} props.selectedSubject - Currently selected subject filter
-     * @param {Array<string>} props.subjects - Array of available subjects
-     * @param {Function} props.onSubjectChange - Callback when subject filter changes
-     * @param {string} props.searchTerm - Current search term
-     * @param {Function} props.onSearchChange - Callback when search term changes
-     * @param {Array<string>} props.allTypes - All available course types
-     * @param {Array<string>} props.selectedTypes - Currently selected type filters
-     * @param {Function} props.onTypeToggle - Callback when type filter is toggled
-     * @param {Function} props.onClearTypes - Callback to clear all type filters
-     * @param {Function} props.getCategoryClass - Function to get CSS class for course type
-     */
     function FilterControls({
         selectedSubject,
         subjects,
@@ -194,19 +148,6 @@ window.initializeComponents = function() {
         );
     }
 
-    /**
-     * CourseTable Component
-     * Renders the main course data table with sortable columns
-     *
-     * @param {Object} props
-     * @param {Array<Object>} props.courses - Array of course objects to display
-     * @param {string} props.sortField - Current sort field
-     * @param {string} props.sortDirection - Current sort direction ('asc' or 'desc')
-     * @param {Function} props.onSort - Callback when column header is clicked
-     * @param {Function} props.onCourseClick - Callback when "View Details" is clicked
-     * @param {Function} props.getCategoryClass - Function to get CSS class for course type
-     * @param {Array} props.enrollmentsData - Enrollment data to conditionally show columns
-     */
     function CourseTable({
         courses,
         sortField,

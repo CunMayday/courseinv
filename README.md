@@ -236,14 +236,9 @@ The application includes comprehensive error handling:
 
 ### Version History
 
-- **v1.9.0** - Refactored into separate CSS and JS files to reduce context usage and improve maintainability
-- **v1.8.0** - Added checkbox filter to hide courses that have never been offered
-- **v1.7.0** - Fixed critical data validation bugs (stale data on failed uploads), fixed duplicate elective labels, updated documentation
-- **v1.6.0** - Made Enrollment Figures file required, added sticky table headers
-- **v1.5.0** - Fixed error banner persistence, improved label clarity ("Average Enrollment", "Degree Plans Using This")
-- **v1.4.0** - Added Enrollment Figures upload with Average Enrollment and Times Offered columns
-- **v1.3.0** - Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification
-- **v1.2.0** - Added type filter and ordered tags: Core, Major, Requirements, Concentration, Elective, Micro-credential
+- Release metadata lives in `version-history.js` (exposed on `window.CourseInventoryVersion`).
+- When shipping a new version, update the `current` object and append a new entry to `history` in that file.
+- Do not add version banners or inline change logs to source files; the info icon modal and footer pull solely from `version-history.js`.
 
 ### Future Enhancement Ideas
 

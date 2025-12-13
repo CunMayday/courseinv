@@ -14,7 +14,9 @@ White - Clean backgrounds and contrast
 
 
 # updates
- Every time you make a change to a code file (not documentation .md files), add a comment at the beginning of the code that includes the version number and a one sentence summary of the latest changes made.  Increment the version number by one if it already exists. keep the previous version information when you add a new one; do not overwrite them.
+- All release/version metadata now lives in `version-history.js` (window.CourseInventoryVersion).
+- When you make a code change that affects behavior or UI, bump the version by updating the `current` object and appending a new entry to the `history` array in `version-history.js` with a one-sentence summary.
+- Do NOT add per-file version banners or header comments in individual source files; the UI footer and change log modal read from `version-history.js`.
 
 
 # context tracking

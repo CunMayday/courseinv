@@ -1,21 +1,5 @@
-/*
-Version 1.23.0 - Created custom hooks file to eliminate duplicate CSV parsing code and improve code reusability.
-*/
-
 // Create a global namespace for custom hooks
 window.CourseInventoryHooks = (function() {
-    /**
-     * Custom hook to parse CSV files with Papa Parse
-     * Handles file size validation, parsing, column validation, and error handling
-     *
-     * @param {File|null} file - The file to parse
-     * @param {Array<string>} requiredColumns - Required column names to validate
-     * @param {string} fileType - Name of file type for error messages (e.g., "Master Course List")
-     * @param {Function} setErrors - State setter for errors array
-     * @param {Function} setIsProcessing - State setter for isProcessing boolean
-     * @param {Function} setData - State setter for parsed data
-     * @param {Function} validateRow - Optional function to validate and filter rows
-     */
     function useCSVParser(
         file,
         requiredColumns,

@@ -1,39 +1,3 @@
-/*
-Version 1.24.2 - Fixed filter controls UI regression: restored original button classes, color coding, and structure.
-Version 1.24.1 - Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.
-Version 1.24.0 - Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.
-Version 1.23.0 - Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.
-Version 1.22.3 - Hide upload section after data is loaded; reload page to upload new files.
-Version 1.22.2 - Fixed ReferenceError by removing setUploadSectionExpanded call after data load.
-Version 1.22.1 - Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.
-Version 1.22.0 - Removed 'Hide courses never offered' checkbox, added sorting instructions to header, removed upload toggle (always show upload section).
-Version 1.21.0 - Added dynamic change log modal accessible via info button in header; version history maintained in VERSION_HISTORY array.
-Version 1.20.0 - Removed variation display toggle (always use standard deviation) and removed trend column from main table.
-Version 1.19.1 - Removed 'Section History by Track' list from detail modal (chart provides same information).
-Version 1.19.0 - Split 'Degree Plans Using This' column into 'Required in Degree Plans' and 'Optional in Degree Plans' with hover tooltips explaining definitions; updated detail modal to show programs split by required/optional sections.
-Version 1.18.4 - Made View Details button available for all courses with appropriate messages for missing information.
-Version 1.18.3 - Replaced variation radio buttons with toggle switch for better UX.
-Version 1.18.2 - Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.
-Version 1.18.1 - Removed change log button/modal.
-Version 1.17.0 - Added variation display toggle (% vs std dev) in table.
-Version 1.16.1 - Fixed modal program tag coloring by scoping category helper locally.
-Version 1.16.0 - Matched program type colors in detail modal to main list category colors.
-Version 1.15.0 - Kept four info cards in a single row and made Section History collapsible by default.
-Version 1.14.0 - Simplified detail modal: removed subject, degree plan count, variation/trend cards, and department chair row.
-Version 1.13.0 - Unified track selection via dropdown for both term code and base term charts (defaults to All Tracks).
-Version 1.12.0 - Added interactive Chart.js line chart to detail modal showing section trends over time with track filtering and dual metric display.
-Version 1.11.0 - Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).
-Version 1.10.0 - Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).
-Version 1.9.0 - Refactored into separate CSS and JS files to reduce context usage.
-Version 1.8.0 - Added checkbox filter to hide courses that have never been offered.
-Version 1.7.0 - Fixed stale data bug on validation failure, fixed duplicate elective labels, updated documentation.
-Version 1.6.0 - Made Enrollment Figures file required, added sticky table headers that remain visible while scrolling.
-Version 1.5.0 - Fixed error banner persistence when replacing files, changed labels to "Average Enrollment" and "Degree Plans Using This".
-Version 1.4.0 - Added optional Enrollment Figures upload with Average Enrollment and Times Offered columns.
-Version 1.3.0 - Enhanced with error handling, loading indicators, file validation, improved OR requirement handling, and better type classification.
-Version 1.2.0 - Added type filter and ordered tags: Core, Major, Requirements, Concentration, Elective, Micro-credential.
-*/
-
 // CDN fallback system
 function loadScript(urls, callback) {
     var index = 0;
@@ -99,34 +63,10 @@ const { useCSVParser } = window.CourseInventoryHooks;
 const { TYPE_ORDER } = window.CourseInventoryConstants;
 const { UploadSection, StatsDashboard, FilterControls, CourseTable } = window.CourseInventoryComponents;
 
-// Version history - keep this in sync with comment block at top of file
-const VERSION_HISTORY = [
-    { version: '1.24.2', description: 'Fixed filter controls UI regression: restored original button classes, color coding, and structure.' },
-    { version: '1.24.1', description: 'Fixed UI regression in CourseTable: restored original headers, sort indicators, button styling, and spacing.' },
-    { version: '1.24.0', description: 'Phase 2 Refactoring: Decomposed CourseInventoryApp into reusable UI components (UploadSection, StatsDashboard, FilterControls, CourseTable); reduced main component from ~600 to ~300 lines.' },
-    { version: '1.23.0', description: 'Phase 1 Refactoring: Extracted business logic to utils.js, created useCSVParser custom hook, centralized constants; reduced main component from 885 lines to ~600 lines and eliminated 132 lines of duplicate CSV parsing code.' },
-    { version: '1.22.3', description: 'Hide upload section after data is loaded; reload page to upload new files.' },
-    { version: '1.22.2', description: 'Fixed ReferenceError by removing setUploadSectionExpanded call after data load.' },
-    { version: '1.22.1', description: 'Fixed ReferenceError by removing leftover hideNeverOffered references from filter logic.' },
-    { version: '1.22.0', description: 'Removed \'Hide courses never offered\' checkbox, added sorting instructions to header, removed upload toggle (always show upload section).' },
-    { version: '1.21.0', description: 'Added dynamic change log modal accessible via info button in header; version history maintained in VERSION_HISTORY array.' },
-    { version: '1.20.0', description: 'Removed variation display toggle (always use standard deviation) and removed trend column from main table.' },
-    { version: '1.19.1', description: 'Removed \'Section History by Track\' list from detail modal (chart provides same information).' },
-    { version: '1.19.0', description: 'Split \'Degree Plans Using This\' column into \'Required in Degree Plans\' and \'Optional in Degree Plans\' with hover tooltips explaining definitions; updated detail modal to show programs split by required/optional sections.' },
-    { version: '1.18.4', description: 'Made View Details button available for all courses with appropriate messages for missing information.' },
-    { version: '1.18.3', description: 'Replaced variation radio buttons with toggle switch for better UX.' },
-    { version: '1.18.2', description: 'Fixed trend symbol inconsistency and reordered prompts.md tasks chronologically.' },
-    { version: '1.18.1', description: 'Removed change log button/modal.' },
-    { version: '1.17.0', description: 'Added variation display toggle (% vs std dev) in table.' },
-    { version: '1.16.1', description: 'Fixed modal program tag coloring by scoping category helper locally.' },
-    { version: '1.16.0', description: 'Matched program type colors in detail modal to main list category colors.' },
-    { version: '1.15.0', description: 'Kept four info cards in a single row and made Section History collapsible by default.' },
-    { version: '1.14.0', description: 'Simplified detail modal info cards (removed subject, degree plan count, variation, trend, and department chair row).' },
-    { version: '1.13.0', description: 'Unified track selection via dropdown for both term code and base term charts (defaults to All Tracks).' },
-    { version: '1.12.0', description: 'Added interactive Chart.js line chart to detail modal showing section trends over time with track filtering and dual metric display.' },
-    { version: '1.11.0', description: 'Added Section History by Track in detail modal showing last 5 terms per track with sections and enrollment counts (calculated on-demand).' },
-    { version: '1.10.0', description: 'Added three new enrollment analysis columns: Avg Sections/Term, Variation (coefficient of variation %), and Trend indicators (↑ ↓ →).' }
-];
+// Version metadata is loaded from version-history.js
+const versionInfo = window.CourseInventoryVersion || { current: { version: 'dev', description: '' }, history: [] };
+const VERSION_HISTORY = versionInfo.history;
+const CURRENT_VERSION = versionInfo.current;
 
 function CourseInventoryApp() {
     const [coursesFile, setCoursesFile] = useState(null);
@@ -446,8 +386,8 @@ function CourseInventoryApp() {
         ),
 
         h('div', { className: 'version-footer' },
-            h('span', { className: 'version-number' }, 'Version 1.24.2'),
-            ' — UI regression fixes: restored original table headers, sort indicators, and filter button styling'
+            h('span', { className: 'version-number' }, 'Version ' + (CURRENT_VERSION.version || 'dev')),
+            CURRENT_VERSION.description ? ' - ' + CURRENT_VERSION.description : ''
         )
     );
 }

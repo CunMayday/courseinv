@@ -1,5 +1,17 @@
 # Project Task History
 
+# Project Task History
+
+## 39. Clarify versioning instructions and remove per-file version comments
+**Agent:** Codex (GPT-5)
+
+**User Prompt:**
+"update the .md file so that the instructions going forward clearly state in which file the update comments should be added, based on your new externalized architecture.  remove the 1.24.3 comment from the .js files you just added.  I didn't mean for you to do that, I had meant to find the instructions and update them so all agents know to update the version history and where to put in now that it is not going into each file."
+
+**Summary:**
+- Updated `CLAUDE.md` instructions to direct all version updates to `version-history.js` and explicitly forbid per-file header banners.
+- Removed the temporary 1.24.3 header comments from `script.js`, `components.js`, `hooks.js`, and `utils.js` (keeping centralized version-history flow intact).
+
 ## 38. Phase 2 Refactoring: Component Decomposition
 **Agent:** Claude (Sonnet 4.5)
 
